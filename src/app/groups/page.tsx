@@ -57,8 +57,8 @@ export default async function GroupsPage({ searchParams }: GroupsPageProps) {
     ? completeness.cusipsResolved / completeness.uniqueCusips
     : 0
 
-  const currentQuarterStats = completeness.quarterCoverage.find((q) => q.quarter === quarter)
-  const fundsReporting = currentQuarterStats?.fundCount ?? 0
+  // Derive funds reporting from filtered groups (respects hideEmpty)
+  const fundsReporting = groups.reduce((sum, g) => sum + g.fundsWithData, 0)
 
   return (
     <div className="space-y-6">
@@ -76,7 +76,9 @@ export default async function GroupsPage({ searchParams }: GroupsPageProps) {
           <CardContent className="pt-4 pb-3 px-4">
             <p className="text-xs font-medium text-muted-foreground">Funds Reporting</p>
             <p className="text-2xl font-bold tabular-nums">{fundsReporting} <span className="text-sm font-normal text-muted-foreground">/ {completeness.totalFunds}</span></p>
-            <p className="text-xs text-muted-foreground">for {formatQuarterLabel(quarter)}</p>
+            <p className="text-xs text-muted-foreground">
+              {hideEmpty && prevQ ? 'in both quarters' : `for ${formatQuarterLabel(quarter)}`}
+            </p>
           </CardContent>
         </Card>
         <Card>
