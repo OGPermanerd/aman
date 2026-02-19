@@ -16,8 +16,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const quarters = getGlobalQuarters()
 
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-background font-sans antialiased">
+    <html lang="en" translate="no" suppressHydrationWarning>
+      <body className="min-h-screen bg-background font-sans antialiased" suppressHydrationWarning>
         <NuqsAdapter>
           <header className="border-b">
             <div className="mx-auto flex h-14 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
