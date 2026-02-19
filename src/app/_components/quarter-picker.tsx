@@ -17,7 +17,7 @@ interface QuarterPickerProps {
 export function QuarterPicker({ quarters }: QuarterPickerProps) {
   const [quarter, setQuarter] = useQueryState(
     'quarter',
-    parseAsString.withDefault(quarters[0] ?? ''),
+    parseAsString.withDefault(quarters[0] ?? '').withOptions({ shallow: false }),
   )
 
   if (quarters.length === 0) {
