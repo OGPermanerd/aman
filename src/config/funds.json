@@ -1,0 +1,254 @@
+{
+  "funds": [
+    {
+      "cik": "1061768",
+      "name": "Lone Pine Capital",
+      "strategyGroup": "Tiger Cubs"
+    },
+    {
+      "cik": "1103804",
+      "name": "Viking Global Investors",
+      "strategyGroup": "Tiger Cubs"
+    },
+    {
+      "cik": "1535392",
+      "name": "Coatue Management",
+      "strategyGroup": "Tiger Cubs"
+    },
+    {
+      "cik": "1167483",
+      "name": "Tiger Global Management",
+      "strategyGroup": "Tiger Cubs"
+    },
+    {
+      "cik": "934639",
+      "name": "Maverick Capital",
+      "strategyGroup": "Tiger Cubs"
+    },
+    {
+      "cik": "1050470",
+      "name": "Blue Ridge Capital",
+      "strategyGroup": "Tiger Cubs"
+    },
+    {
+      "cik": "1404064",
+      "name": "Sands Capital Management",
+      "strategyGroup": "Tiger Cubs"
+    },
+    {
+      "cik": "1279708",
+      "name": "Hound Partners",
+      "strategyGroup": "Tiger Cubs"
+    },
+    {
+      "cik": "1640584",
+      "name": "Jhaveri Capital",
+      "strategyGroup": "Tiger Cubs"
+    },
+    {
+      "cik": "1777827",
+      "name": "Altimeter Capital Management",
+      "strategyGroup": "Tiger Cubs"
+    },
+    {
+      "cik": "1336528",
+      "name": "Pershing Square Capital Management",
+      "strategyGroup": "Activist"
+    },
+    {
+      "cik": "1040273",
+      "name": "Third Point",
+      "strategyGroup": "Activist"
+    },
+    {
+      "cik": "1048445",
+      "name": "Elliott Investment Management",
+      "strategyGroup": "Activist"
+    },
+    {
+      "cik": "807249",
+      "name": "Icahn Enterprises",
+      "strategyGroup": "Activist"
+    },
+    {
+      "cik": "1543160",
+      "name": "Starboard Value",
+      "strategyGroup": "Activist"
+    },
+    {
+      "cik": "1072598",
+      "name": "ValueAct Capital",
+      "strategyGroup": "Activist"
+    },
+    {
+      "cik": "1159159",
+      "name": "Jana Partners",
+      "strategyGroup": "Activist"
+    },
+    {
+      "cik": "1345471",
+      "name": "Trian Fund Management",
+      "strategyGroup": "Activist"
+    },
+    {
+      "cik": "1613170",
+      "name": "Engaged Capital",
+      "strategyGroup": "Activist"
+    },
+    {
+      "cik": "1598665",
+      "name": "Sachem Head Capital Management",
+      "strategyGroup": "Activist"
+    },
+    {
+      "cik": "1350694",
+      "name": "Bridgewater Associates",
+      "strategyGroup": "Macro"
+    },
+    {
+      "cik": "1029160",
+      "name": "Soros Fund Management",
+      "strategyGroup": "Macro"
+    },
+    {
+      "cik": "1067983",
+      "name": "Tudor Investment Corp",
+      "strategyGroup": "Macro"
+    },
+    {
+      "cik": "1040280",
+      "name": "Caxton Associates",
+      "strategyGroup": "Macro"
+    },
+    {
+      "cik": "1581811",
+      "name": "Brevan Howard",
+      "strategyGroup": "Macro"
+    },
+    {
+      "cik": "1054432",
+      "name": "Moore Capital Management",
+      "strategyGroup": "Macro"
+    },
+    {
+      "cik": "1355149",
+      "name": "Discovery Capital Management",
+      "strategyGroup": "Macro"
+    },
+    {
+      "cik": "1506498",
+      "name": "Element Capital Management",
+      "strategyGroup": "Macro"
+    },
+    {
+      "cik": "1273087",
+      "name": "Graham Capital Management",
+      "strategyGroup": "Macro"
+    },
+    {
+      "cik": "1729352",
+      "name": "Rokos Capital Management",
+      "strategyGroup": "Macro"
+    },
+    {
+      "cik": "1037389",
+      "name": "Renaissance Technologies",
+      "strategyGroup": "Quant"
+    },
+    {
+      "cik": "1179392",
+      "name": "Two Sigma Investments",
+      "strategyGroup": "Quant"
+    },
+    {
+      "cik": "1009207",
+      "name": "D. E. Shaw & Co.",
+      "strategyGroup": "Quant"
+    },
+    {
+      "cik": "1423053",
+      "name": "Citadel Advisors",
+      "strategyGroup": "Quant"
+    },
+    {
+      "cik": "1167557",
+      "name": "AQR Capital Management",
+      "strategyGroup": "Quant"
+    },
+    {
+      "cik": "1603466",
+      "name": "Point72 Asset Management",
+      "strategyGroup": "Quant"
+    },
+    {
+      "cik": "1535076",
+      "name": "Millennium Management",
+      "strategyGroup": "Quant"
+    },
+    {
+      "cik": "1582202",
+      "name": "Man Group",
+      "strategyGroup": "Quant"
+    },
+    {
+      "cik": "1457984",
+      "name": "Winton Group",
+      "strategyGroup": "Quant"
+    },
+    {
+      "cik": "1569325",
+      "name": "PDT Partners",
+      "strategyGroup": "Quant"
+    },
+    {
+      "cik": "1082349",
+      "name": "Baupost Group",
+      "strategyGroup": "Multi-Strategy"
+    },
+    {
+      "cik": "1656456",
+      "name": "Appaloosa Management",
+      "strategyGroup": "Multi-Strategy"
+    },
+    {
+      "cik": "1079114",
+      "name": "Greenlight Capital",
+      "strategyGroup": "Multi-Strategy"
+    },
+    {
+      "cik": "1536411",
+      "name": "Duquesne Family Office",
+      "strategyGroup": "Multi-Strategy"
+    },
+    {
+      "cik": "1005110",
+      "name": "Farallon Capital Management",
+      "strategyGroup": "Multi-Strategy"
+    },
+    {
+      "cik": "1303382",
+      "name": "Canyon Capital Advisors",
+      "strategyGroup": "Multi-Strategy"
+    },
+    {
+      "cik": "1138995",
+      "name": "Glenview Capital Management",
+      "strategyGroup": "Multi-Strategy"
+    },
+    {
+      "cik": "1067234",
+      "name": "York Capital Management",
+      "strategyGroup": "Multi-Strategy"
+    },
+    {
+      "cik": "1555280",
+      "name": "Ares Management",
+      "strategyGroup": "Multi-Strategy"
+    },
+    {
+      "cik": "1403256",
+      "name": "Och-Ziff Capital Management",
+      "strategyGroup": "Multi-Strategy"
+    }
+  ]
+}
