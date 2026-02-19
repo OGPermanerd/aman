@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-19)
 ## Current Position
 
 Phase: 3 of 3 (Dashboard)
-Plan: 1 of 3 in current phase (03-01 complete)
+Plan: 2 of 3 in current phase (03-02 complete)
 Status: In Progress
-Last activity: 2026-02-19 -- Completed 03-01-PLAN.md
+Last activity: 2026-02-19 -- Completed 03-02-PLAN.md
 
-Progress: [███████░░░] 67%
+Progress: [████████░░] 78%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
+- Total plans completed: 7
 - Average duration: 5min
-- Total execution time: 0.50 hours
+- Total execution time: 0.55 hours
 
 **By Phase:**
 
@@ -29,11 +29,11 @@ Progress: [███████░░░] 67%
 |-------|-------|-------|----------|
 | 01-data-foundation | 3/3 | 15min | 5min |
 | 02-analytics-engine | 2/2 | 7min | 3.5min |
-| 03-dashboard | 1/3 | 8min | 8min |
+| 03-dashboard | 2/3 | 11min | 5.5min |
 
 **Recent Trend:**
-- Last 5 plans: 01-03 (5min), 02-01 (4min), 02-02 (3min), 03-01 (8min)
-- Trend: stable (03-01 larger scope: full Next.js setup + data layer)
+- Last 5 plans: 02-01 (4min), 02-02 (3min), 03-01 (8min), 03-02 (3min)
+- Trend: stable
 
 *Updated after each plan completion*
 
@@ -64,6 +64,9 @@ Recent decisions affecting current work:
 - [03-01]: Removed .js extensions from all relative imports for Turbopack bundler compatibility
 - [03-01]: Used nuqs with parseAsString for quarter URL state sync
 - [03-01]: HMR-safe database singleton via globalThis pattern for Next.js dev
+- [03-02]: TanStack Table with shadcn Table primitives for interactive sortable holdings table
+- [03-02]: Server-to-client serialization: FundPosition mapped to plain HoldingRow interface for client component
+- [03-02]: Sort order: funds with data first (by value desc), then funds without data (alphabetically)
 
 ### Pending Todos
 
@@ -78,5 +81,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-19
-Stopped at: Completed 03-01-PLAN.md (Next.js Foundation: App Shell, Data Layer & Shared Components)
-Resume file: .planning/phases/03-dashboard/03-01-SUMMARY.md
+Stopped at: Completed 03-02-PLAN.md (Core Pages: Strategy Groups, Group Detail, Fund Detail)
+Resume file: .planning/phases/03-dashboard/03-02-SUMMARY.md
