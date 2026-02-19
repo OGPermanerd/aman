@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { eq, notInArray } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { z } from 'zod/v4';
-import { funds } from '../db/schema.js';
-import type * as schema from '../db/schema.js';
+import { funds } from '../db/schema';
+import type * as schema from '../db/schema';
 
 // ---------------------------------------------------------------------------
 // Zod schema for fund config validation

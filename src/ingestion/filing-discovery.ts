@@ -3,7 +3,7 @@
  * Groups filings by reporting quarter and handles pagination for large filers.
  */
 
-import { edgarClient } from './edgar-client.js';
+import { edgarClient } from './edgar-client';
 
 // ---------------------------------------------------------------------------
 // Interfaces

@@ -1,8 +1,8 @@
 import { desc } from 'drizzle-orm';
 import { eq } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { holdings } from '../db/schema.js';
-import type * as schema from '../db/schema.js';
+import { holdings } from '../db/schema';
+import type * as schema from '../db/schema';
 
 /**
  * Compute the previous quarter string.

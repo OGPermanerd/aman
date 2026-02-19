@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createTestDb, seedGroupConsensus, AAPL_CUSIP, NVDA_CUSIP, MSFT_CUSIP, TSLA_CUSIP, type TestDb } from './test-helpers.js';
-import { computeGroupConsensus } from '../group-consensus.js';
+import { createTestDb, seedGroupConsensus, AAPL_CUSIP, NVDA_CUSIP, MSFT_CUSIP, TSLA_CUSIP, type TestDb } from './test-helpers';
+import { computeGroupConsensus } from '../group-consensus';
 
 describe('computeGroupConsensus', () => {
   let testDb: TestDb;

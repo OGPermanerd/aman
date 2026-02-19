@@ -13,8 +13,8 @@
 import { eq, and, sql } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
-import { securities, holdings } from '../db/schema.js';
-import type * as schema from '../db/schema.js';
+import { securities, holdings } from '../db/schema';
+import type * as schema from '../db/schema';
 
 // ---------------------------------------------------------------------------
 // Interfaces

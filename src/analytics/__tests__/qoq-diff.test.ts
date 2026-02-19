@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createTestDb, seedTwoQuarters, type TestDb, AAPL_CUSIP, MSFT_CUSIP, GOOG_CUSIP, NVDA_CUSIP } from './test-helpers.js';
-import { computeQoQDiff } from '../qoq-diff.js';
+import { createTestDb, seedTwoQuarters, type TestDb, AAPL_CUSIP, MSFT_CUSIP, GOOG_CUSIP, NVDA_CUSIP } from './test-helpers';
+import { computeQoQDiff } from '../qoq-diff';
 
 describe('computeQoQDiff', () => {
   let testDb: TestDb;

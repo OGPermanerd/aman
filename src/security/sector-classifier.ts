@@ -9,9 +9,9 @@
 import { and, isNull, isNotNull, eq } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
-import { securities } from '../db/schema.js';
-import type * as schema from '../db/schema.js';
-import { edgarClient } from '../ingestion/edgar-client.js';
+import { securities } from '../db/schema';
+import type * as schema from '../db/schema';
+import { edgarClient } from '../ingestion/edgar-client';
 
 // ---------------------------------------------------------------------------
 // Interfaces

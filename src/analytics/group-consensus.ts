@@ -1,8 +1,8 @@
 import { eq, and } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { funds, holdings, securities } from '../db/schema.js';
-import type * as schema from '../db/schema.js';
-import type { ConsensusPosition } from './types.js';
+import { funds, holdings, securities } from '../db/schema';
+import type * as schema from '../db/schema';
+import type { ConsensusPosition } from './types';
 
 /**
  * Compute group consensus for a strategy group in a given quarter.

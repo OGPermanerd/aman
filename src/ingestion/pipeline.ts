@@ -8,21 +8,21 @@
 import { eq } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
-import { filings, holdings } from '../db/schema.js';
-import type * as schema from '../db/schema.js';
-import { edgarClient } from './edgar-client.js';
-import { discoverFilings } from './filing-discovery.js';
+import { filings, holdings } from '../db/schema';
+import type * as schema from '../db/schema';
+import { edgarClient } from './edgar-client';
+import { discoverFilings } from './filing-discovery';
 import {
   parseInfoTable,
   parseCoverPage,
   findInfoTableFilename,
-} from './xml-parser.js';
+} from './xml-parser';
 import {
   detectValueFormat,
   normalizeHoldings,
   type NormalizedHolding,
-} from './normalizer.js';
-import { handleAmendment } from './amendment-handler.js';
+} from './normalizer';
+import { handleAmendment } from './amendment-handler';
 
 // ---------------------------------------------------------------------------
 // Interfaces

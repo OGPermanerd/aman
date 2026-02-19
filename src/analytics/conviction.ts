@@ -1,10 +1,10 @@
 import { eq, and } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { holdings } from '../db/schema.js';
-import type * as schema from '../db/schema.js';
-import type { ConvictionScore } from './types.js';
-import { getAvailableQuarters, previousQuarter } from './quarter-utils.js';
-import { computePortfolioWeights } from './portfolio-weights.js';
+import { holdings } from '../db/schema';
+import type * as schema from '../db/schema';
+import type { ConvictionScore } from './types';
+import { getAvailableQuarters, previousQuarter } from './quarter-utils';
+import { computePortfolioWeights } from './portfolio-weights';
 
 /**
  * Get the share count for a specific position in a specific quarter.

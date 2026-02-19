@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createTestDb, seedTwoQuarters, type TestDb } from './test-helpers.js';
-import { computePortfolioWeights } from '../portfolio-weights.js';
+import { createTestDb, seedTwoQuarters, type TestDb } from './test-helpers';
+import { computePortfolioWeights } from '../portfolio-weights';
 
 describe('computePortfolioWeights', () => {
   let testDb: TestDb;

@@ -10,10 +10,10 @@
 import { and, eq } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
-import { holdings } from '../db/schema.js';
-import type * as schema from '../db/schema.js';
-import type { CoverPageData } from './xml-parser.js';
-import type { NormalizedHolding } from './normalizer.js';
+import { holdings } from '../db/schema';
+import type * as schema from '../db/schema';
+import type { CoverPageData } from './xml-parser';
+import type { NormalizedHolding } from './normalizer';
 
 export interface AmendmentResult {
   action: 'insert' | 'replace' | 'merge';

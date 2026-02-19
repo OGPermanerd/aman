@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import * as schema from '../../db/schema.js';
-import { funds, filings, holdings, securities } from '../../db/schema.js';
+import * as schema from '../../db/schema';
+import { funds, filings, holdings, securities } from '../../db/schema';
 
 export interface TestDb {
   db: BetterSQLite3Database<typeof schema>;

@@ -24,13 +24,13 @@
 
 import { eq } from 'drizzle-orm';
 
-import { getDb } from '../db/connection.js';
-import { funds } from '../db/schema.js';
-import { syncFundsToDb } from '../config/loader.js';
-import { ingestFund } from '../ingestion/pipeline.js';
-import { resolveNewCusips } from '../security/cusip-resolver.js';
-import { classifySectorsFromHoldings } from '../security/sector-classifier.js';
-import { startScheduler } from './check-filings.js';
+import { getDb } from '../db/connection';
+import { funds } from '../db/schema';
+import { syncFundsToDb } from '../config/loader';
+import { ingestFund } from '../ingestion/pipeline';
+import { resolveNewCusips } from '../security/cusip-resolver';
+import { classifySectorsFromHoldings } from '../security/sector-classifier';
+import { startScheduler } from './check-filings';
 
 // ---------------------------------------------------------------------------
 // Argument parsing

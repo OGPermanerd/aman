@@ -1,6 +1,6 @@
 import Database, { type Database as DatabaseType } from 'better-sqlite3';
 import { type BetterSQLite3Database, drizzle } from 'drizzle-orm/better-sqlite3';
-import * as schema from './schema.js';
+import * as schema from './schema';
 
 const DEFAULT_DB_PATH = 'hedgelens.db';
 

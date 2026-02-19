@@ -6,7 +6,7 @@
  * This module normalizes all values to exact dollars.
  */
 
-import type { RawHolding } from './xml-parser.js';
+import type { RawHolding } from './xml-parser';
 
 // ---------------------------------------------------------------------------
 // Constants

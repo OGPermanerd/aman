@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createTestDb, seedConvictionData, seedTwoQuarters, AAPL_CUSIP, MSFT_CUSIP, GOOG_CUSIP, NVDA_CUSIP, type TestDb } from './test-helpers.js';
-import { computeConvictionScores } from '../conviction.js';
+import { createTestDb, seedConvictionData, seedTwoQuarters, AAPL_CUSIP, MSFT_CUSIP, GOOG_CUSIP, NVDA_CUSIP, type TestDb } from './test-helpers';
+import { computeConvictionScores } from '../conviction';
 
 describe('computeConvictionScores', () => {
   let testDb: TestDb;

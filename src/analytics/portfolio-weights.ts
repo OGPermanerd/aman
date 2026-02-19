@@ -1,8 +1,8 @@
 import { eq, and, desc } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { holdings, securities } from '../db/schema.js';
-import type * as schema from '../db/schema.js';
-import type { PortfolioWeight } from './types.js';
+import { holdings, securities } from '../db/schema';
+import type * as schema from '../db/schema';
+import type { PortfolioWeight } from './types';
 
 /**
  * Compute portfolio weights for a fund in a specific quarter.
