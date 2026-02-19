@@ -7,3 +7,4 @@ dist/
 .planning/
 .next/
 next-env.d.ts
+data/

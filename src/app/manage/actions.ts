@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { eq } from 'drizzle-orm'
 import { db } from '@/db/connection'
 import { funds } from '@/db/schema'
+import { ingestFund } from '@/ingestion/pipeline'
 
 const FUNDS_JSON_PATH = join(process.cwd(), 'src/config/funds.json')
 
@@ -78,4 +79,27 @@ export async function removeFund(cik: string): Promise<{ error?: string }> {
   revalidatePath('/manage')
   revalidatePath('/groups')
   return {}
+}
+
+export async function ingestNewFund(cik: string): Promise<{ error?: string; result?: { quartersProcessed: number; totalHoldings: number } }> {
+  if (!cik || !/^\d+$/.test(cik)) {
+    return { error: 'Invalid CIK.' }
+  }
+
+  try {
+    const result = await ingestFund(db, cik)
+
+    revalidatePath('/manage')
+    revalidatePath('/groups')
+
+    return {
+      result: {
+        quartersProcessed: result.quartersProcessed,
+        totalHoldings: result.totalHoldings,
+      },
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return { error: `Ingestion failed: ${message}` }
+  }
 }

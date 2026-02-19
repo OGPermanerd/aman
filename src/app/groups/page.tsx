@@ -1,7 +1,9 @@
 import Link from 'next/link'
 import { getGroupOverview, getGlobalQuarters, getDataCompleteness } from '@/lib/data'
 import { previousQuarter } from '@/analytics/quarter-utils'
+import { getAllGroups } from '@/lib/slugs'
 import { QuarterDisplay } from '@/app/_components/quarter-display'
+import { AddFundModal } from '@/app/_components/add-fund-modal'
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card'
 import { formatCurrency, formatNumber, formatPercent, formatQuarterLabel } from '@/lib/formatters'
 
@@ -56,6 +58,10 @@ export default async function GroupsPage({ searchParams }: GroupsPageProps) {
   const tickerCoverageRatio = completeness.uniqueCusips > 0
     ? completeness.cusipsResolved / completeness.uniqueCusips
     : 0
+  const cusipsProcessed = completeness.cusipsResolved + completeness.cusipsUnmapped
+  const processedRatio = completeness.uniqueCusips > 0
+    ? cusipsProcessed / completeness.uniqueCusips
+    : 0
 
   // Derive funds reporting from filtered groups (respects hideEmpty)
   const fundsReporting = groups.reduce((sum, g) => sum + g.fundsWithData, 0)
@@ -94,7 +100,10 @@ export default async function GroupsPage({ searchParams }: GroupsPageProps) {
             <p className={`text-2xl font-bold tabular-nums ${tickerCoverageRatio >= 0.9 ? 'text-green-600' : tickerCoverageRatio >= 0.7 ? 'text-yellow-600' : 'text-red-600'}`}>
               {formatPercent(tickerCoverageRatio, 0)}
             </p>
-            <p className="text-xs text-muted-foreground">{formatNumber(completeness.cusipsResolved)} / {formatNumber(completeness.uniqueCusips)} CUSIPs</p>
+            <p className="text-xs text-muted-foreground">
+              {formatNumber(completeness.cusipsResolved)} resolved
+              {completeness.cusipsUnmapped > 0 && ` · ${formatNumber(completeness.cusipsUnmapped)} no match`}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -108,9 +117,9 @@ export default async function GroupsPage({ searchParams }: GroupsPageProps) {
         </Card>
       </div>
 
-      {tickerCoverageRatio < 0.9 && (
+      {completeness.cusipsPending > 0 && (
         <div className="rounded-md border border-yellow-200 bg-yellow-50 px-4 py-2.5 text-sm text-yellow-800 dark:border-yellow-900 dark:bg-yellow-950 dark:text-yellow-200">
-          Ticker resolution in progress. {formatNumber(completeness.cusipsPending + completeness.cusipsUnmapped)} CUSIPs pending.
+          Ticker resolution in progress. {formatNumber(completeness.cusipsPending)} CUSIPs pending.
           Run <code className="rounded bg-yellow-100 px-1 py-0.5 text-xs dark:bg-yellow-900">pnpm ingest --all</code> to complete.
         </div>
       )}
@@ -175,6 +184,7 @@ export default async function GroupsPage({ searchParams }: GroupsPageProps) {
             </Link>
           )
         })}
+        <AddFundModal existingGroups={getAllGroups()} />
       </div>
     </div>
   )
