@@ -1,11 +1,12 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getFundDetail, getGlobalQuarters } from '@/lib/data'
+import { getFundDetail, getSectorBreakdown, getGlobalQuarters } from '@/lib/data'
 import { slugToGroup, groupToSlug } from '@/lib/slugs'
 import { QuarterDisplay } from '@/app/_components/quarter-display'
 import { StatCard } from '@/app/_components/stat-card'
 import { ChangeBadge } from '@/app/_components/change-badge'
 import { HoldingsTable, type HoldingRow } from '@/app/_components/holdings-table'
+import { SectorChart } from '@/app/_components/sector-chart'
 import { formatCurrency, formatNumber } from '@/lib/formatters'
 
 interface FundDetailPageProps {
@@ -33,6 +34,8 @@ export default async function FundDetailPage({ params, searchParams }: FundDetai
 
   const detail = getFundDetail(cik, quarter)
   if (!detail) notFound()
+
+  const sectorData = getSectorBreakdown(cik, quarter)
 
   // Prepare serializable holdings data for client component
   const holdingRows: HoldingRow[] = detail.positions.map((pos) => ({
@@ -114,6 +117,9 @@ export default async function FundDetailPage({ params, searchParams }: FundDetai
         <h2 className="text-lg font-semibold mb-3">Holdings</h2>
         <HoldingsTable holdings={holdingRows} quarter={quarter} />
       </div>
+
+      {/* Sector Allocation */}
+      <SectorChart data={sectorData} title="Sector Allocation" />
     </div>
   )
 }

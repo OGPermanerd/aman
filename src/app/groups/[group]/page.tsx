@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getGroupDetail, getGlobalQuarters } from '@/lib/data'
+import { getGroupDetail, getGroupSectorBreakdown, getGlobalQuarters } from '@/lib/data'
 import { slugToGroup } from '@/lib/slugs'
 import { QuarterDisplay } from '@/app/_components/quarter-display'
 import { ChangeBadge } from '@/app/_components/change-badge'
+import { SectorChart } from '@/app/_components/sector-chart'
 import { formatCurrency, formatNumber } from '@/lib/formatters'
 import {
   Table,
@@ -38,6 +39,7 @@ export default async function GroupDetailPage({ params, searchParams }: GroupDet
   }
 
   const detail = getGroupDetail(strategyGroup, quarter)
+  const groupSectorData = getGroupSectorBreakdown(strategyGroup, quarter)
 
   // Sort: funds with data first (by portfolio value desc), then funds without data (alphabetically)
   const sortedFunds = [...detail.funds].sort((a, b) => {
@@ -166,6 +168,9 @@ export default async function GroupDetailPage({ params, searchParams }: GroupDet
           ))}
         </TableBody>
       </Table>
+
+      {/* Group Sector Allocation */}
+      <SectorChart data={groupSectorData} title="Group Sector Allocation" />
     </div>
   )
 }
