@@ -1,6 +1,5 @@
-import { db } from '@/db/connection'
-import { funds } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { getAllGroups } from '@/lib/slugs'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -15,23 +14,23 @@ import {
 import { AddFundForm } from './add-fund-form'
 import { RemoveFundButton } from './remove-fund-button'
 
+interface FundEntry {
+  cik: string
+  name: string
+  strategyGroup: string
+}
+
+function readFundsConfig(): FundEntry[] {
+  const raw = readFileSync(join(process.cwd(), 'src/config/funds.json'), 'utf-8')
+  return JSON.parse(raw).funds
+}
+
 export default function ManagePage() {
   const groups = getAllGroups()
+  const allFunds = readFundsConfig()
 
-  const allFunds = db
-    .select({
-      cik: funds.cik,
-      name: funds.name,
-      strategyGroup: funds.strategyGroup,
-      active: funds.active,
-    })
-    .from(funds)
-    .where(eq(funds.active, true))
-    .orderBy(funds.strategyGroup, funds.name)
-    .all()
-
-  // Group funds by strategy
-  const fundsByGroup = new Map<string, typeof allFunds>()
+  // Group funds by strategy (from config, supporting multi-group)
+  const fundsByGroup = new Map<string, FundEntry[]>()
   for (const group of groups) {
     fundsByGroup.set(group, [])
   }
@@ -86,11 +85,11 @@ export default function ManagePage() {
                   </TableHeader>
                   <TableBody>
                     {groupFunds.map((fund) => (
-                      <TableRow key={fund.cik}>
+                      <TableRow key={`${fund.cik}-${fund.strategyGroup}`}>
                         <TableCell className="font-medium">{fund.name}</TableCell>
                         <TableCell className="tabular-nums text-muted-foreground">{fund.cik}</TableCell>
                         <TableCell className="text-right">
-                          <RemoveFundButton cik={fund.cik} name={fund.name} />
+                          <RemoveFundButton cik={fund.cik} name={fund.name} strategyGroup={fund.strategyGroup} />
                         </TableCell>
                       </TableRow>
                     ))}

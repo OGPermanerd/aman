@@ -38,10 +38,10 @@ export async function addFund(formData: FormData): Promise<{ error?: string }> {
     return { error: 'CIK must be a number (e.g. 1336528).' }
   }
 
-  // Check for duplicate
+  // Check for duplicate (same CIK + same group)
   const config = readFundsJson()
-  if (config.funds.some((f) => f.cik === cik)) {
-    return { error: `Fund with CIK ${cik} already exists.` }
+  if (config.funds.some((f) => f.cik === cik && f.strategyGroup === strategyGroup)) {
+    return { error: `Fund with CIK ${cik} already exists in ${strategyGroup}.` }
   }
 
   // Add to JSON
@@ -62,19 +62,26 @@ export async function addFund(formData: FormData): Promise<{ error?: string }> {
   return {}
 }
 
-export async function removeFund(cik: string): Promise<{ error?: string }> {
+export async function removeFund(cik: string, strategyGroup?: string): Promise<{ error?: string }> {
   if (!cik) return { error: 'CIK is required.' }
 
-  // Remove from JSON
+  // Remove from JSON (specific group if provided, otherwise all entries)
   const config = readFundsJson()
-  config.funds = config.funds.filter((f) => f.cik !== cik)
+  if (strategyGroup) {
+    config.funds = config.funds.filter((f) => !(f.cik === cik && f.strategyGroup === strategyGroup))
+  } else {
+    config.funds = config.funds.filter((f) => f.cik !== cik)
+  }
   writeFundsJson(config)
 
-  // Mark inactive in DB (keep data)
-  db.update(funds)
-    .set({ active: false })
-    .where(eq(funds.cik, cik))
-    .run()
+  // If no more entries for this CIK, mark inactive in DB (keep data)
+  const hasRemainingEntries = config.funds.some((f) => f.cik === cik)
+  if (!hasRemainingEntries) {
+    db.update(funds)
+      .set({ active: false })
+      .where(eq(funds.cik, cik))
+      .run()
+  }
 
   revalidatePath('/manage')
   revalidatePath('/groups')

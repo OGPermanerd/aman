@@ -1,22 +1,44 @@
-import { db } from '@/db/connection'
-import { funds } from '@/db/schema'
-import { eq, sql } from 'drizzle-orm'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+
+interface ConfigFundEntry {
+  cik: string
+  name: string
+  strategyGroup: string
+}
+
+function readFundsConfig(): ConfigFundEntry[] {
+  const raw = readFileSync(join(process.cwd(), 'src/config/funds.json'), 'utf-8')
+  return JSON.parse(raw).funds
+}
 
 function slugify(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 }
 
 /**
- * Returns all distinct strategy groups from active funds in the database.
+ * Returns all distinct strategy groups from funds config.
  */
 export function getAllGroups(): string[] {
-  const rows = db
-    .selectDistinct({ strategyGroup: funds.strategyGroup })
-    .from(funds)
-    .where(eq(funds.active, true))
-    .orderBy(funds.strategyGroup)
-    .all()
-  return rows.map((r) => r.strategyGroup)
+  const funds = readFundsConfig()
+  const groups = [...new Set(funds.map((f) => f.strategyGroup))]
+  groups.sort()
+  return groups
+}
+
+/**
+ * Returns funds belonging to a strategy group (from config).
+ * Deduplicates by CIK within the same group.
+ */
+export function getFundsInGroup(group: string): { cik: string; name: string }[] {
+  const funds = readFundsConfig()
+  const entries = funds.filter((f) => f.strategyGroup === group)
+  const seen = new Set<string>()
+  return entries.filter((e) => {
+    if (seen.has(e.cik)) return false
+    seen.add(e.cik)
+    return true
+  })
 }
 
 export function slugToGroup(slug: string): string | undefined {

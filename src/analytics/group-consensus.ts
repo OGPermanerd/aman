@@ -17,20 +17,33 @@ export function computeGroupConsensus(
   db: BetterSQLite3Database<typeof schema>,
   strategyGroup: string,
   quarter: string,
+  overrideCiks?: string[],
 ): ConsensusPosition[] {
   // Step 1: Get all active funds in the strategy group
-  const groupFunds = db
-    .select({ cik: funds.cik })
-    .from(funds)
-    .where(and(eq(funds.strategyGroup, strategyGroup), eq(funds.active, true)))
-    .all();
+  let fundCiks: string[];
+  let totalFundsInGroup: number;
 
-  if (groupFunds.length === 0) {
-    return [];
+  if (overrideCiks) {
+    fundCiks = overrideCiks;
+    totalFundsInGroup = overrideCiks.length;
+  } else {
+    const groupFunds = db
+      .select({ cik: funds.cik })
+      .from(funds)
+      .where(and(eq(funds.strategyGroup, strategyGroup), eq(funds.active, true)))
+      .all();
+
+    if (groupFunds.length === 0) {
+      return [];
+    }
+
+    totalFundsInGroup = groupFunds.length;
+    fundCiks = groupFunds.map((f) => f.cik);
   }
 
-  const totalFundsInGroup = groupFunds.length;
-  const fundCiks = groupFunds.map((f) => f.cik);
+  if (fundCiks.length === 0) {
+    return [];
+  }
 
   // Step 2: Query equity holdings for all group funds in the quarter
   // We query one fund at a time since Drizzle's inArray may not be available

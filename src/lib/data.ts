@@ -7,7 +7,7 @@ import { computeQoQDiff } from '@/analytics/qoq-diff'
 import { computeGroupConsensus } from '@/analytics/group-consensus'
 import { computeConvictionScores } from '@/analytics/conviction'
 import { previousQuarter } from '@/analytics/quarter-utils'
-import { groupToSlug, getAllGroups } from '@/lib/slugs'
+import { groupToSlug, getAllGroups, getFundsInGroup } from '@/lib/slugs'
 import type { PositionChangeType } from '@/analytics/types'
 
 // ---------------------------------------------------------------------------
@@ -77,12 +77,8 @@ export function getGroupOverview(quarter: string, comparisonQuarter?: string): G
   const requireBothQuarters = !!comparisonQuarter
 
   for (const group of groups) {
-    // Get all active funds in this group
-    const groupFunds = db
-      .select({ cik: funds.cik })
-      .from(funds)
-      .where(and(eq(funds.strategyGroup, group), eq(funds.active, true)))
-      .all()
+    // Get all funds in this group from config
+    const groupFunds = getFundsInGroup(group)
 
     const fundCount = groupFunds.length
     if (fundCount === 0) {
@@ -141,7 +137,8 @@ export function getGroupOverview(quarter: string, comparisonQuarter?: string): G
     }
 
     // Get top 5 consensus holdings
-    const consensus = computeGroupConsensus(db, group, quarter)
+    const groupCiks = groupFunds.map((f) => f.cik)
+    const consensus = computeGroupConsensus(db, group, quarter, groupCiks)
     const topHoldings = consensus.slice(0, 5).map((c) => ({
       cusip: c.cusip,
       ticker: c.ticker,
@@ -194,12 +191,8 @@ export interface GroupDetail {
 export function getGroupDetail(strategyGroup: string, quarter: string): GroupDetail {
   const slug = groupToSlug(strategyGroup) ?? ''
 
-  const groupFunds = db
-    .select({ cik: funds.cik, name: funds.name })
-    .from(funds)
-    .where(and(eq(funds.strategyGroup, strategyGroup), eq(funds.active, true)))
-    .orderBy(funds.name)
-    .all()
+  const groupFunds = getFundsInGroup(strategyGroup)
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   const prevQ = previousQuarter(quarter)
   const fundDetails: GroupDetailFund[] = []
@@ -547,16 +540,14 @@ export function getSectorBreakdown(fundCik: string, quarter: string): SectorBrea
  * Sector breakdown aggregated across all funds in a strategy group.
  */
 export function getGroupSectorBreakdown(strategyGroup: string, quarter: string, includeCiks?: string[]): SectorBreakdownItem[] {
-  let groupFunds = db
-    .select({ cik: funds.cik })
-    .from(funds)
-    .where(and(eq(funds.strategyGroup, strategyGroup), eq(funds.active, true)))
-    .all()
+  let groupFundEntries = getFundsInGroup(strategyGroup)
 
   if (includeCiks) {
     const allowed = new Set(includeCiks)
-    groupFunds = groupFunds.filter((f) => allowed.has(f.cik))
+    groupFundEntries = groupFundEntries.filter((f) => allowed.has(f.cik))
   }
+
+  const groupFunds = groupFundEntries.map((f) => ({ cik: f.cik }))
 
   if (groupFunds.length === 0) return []
 
@@ -908,16 +899,14 @@ export interface GroupQoQFlowData {
 export function getGroupQoQFlowData(strategyGroup: string, quarter: string, includeCiks?: string[]): GroupQoQFlowData | null {
   const prevQ = previousQuarter(quarter)
 
-  let groupFunds = db
-    .select({ cik: funds.cik })
-    .from(funds)
-    .where(and(eq(funds.strategyGroup, strategyGroup), eq(funds.active, true)))
-    .all()
+  let groupFundEntries = getFundsInGroup(strategyGroup)
 
   if (includeCiks) {
     const allowed = new Set(includeCiks)
-    groupFunds = groupFunds.filter((f) => allowed.has(f.cik))
+    groupFundEntries = groupFundEntries.filter((f) => allowed.has(f.cik))
   }
+
+  const groupFunds = groupFundEntries.map((f) => ({ cik: f.cik }))
 
   let totalPrev = 0, totalCurr = 0
   let newValue = 0, exitedValue = 0

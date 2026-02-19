@@ -9,6 +9,7 @@ const links = [
   { href: '/charts', label: 'Charts' },
   { href: '/status', label: 'Status' },
   { href: '/manage', label: 'Manage' },
+  { href: '/log', label: 'Log' },
 ]
 
 export function NavLinks() {
