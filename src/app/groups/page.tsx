@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { formatCurrency, formatNumber, formatPercent, formatQuarterLabel } from '@/lib/formatters'
 
 interface GroupsPageProps {
-  searchParams: Promise<{ quarter?: string }>
+  searchParams: Promise<{ quarter?: string; hideEmpty?: string }>
 }
 
 function DeltaBadge({ current, prior }: { current: number; prior: number }) {
@@ -21,9 +21,10 @@ function DeltaBadge({ current, prior }: { current: number; prior: number }) {
 }
 
 export default async function GroupsPage({ searchParams }: GroupsPageProps) {
-  const { quarter: qParam } = await searchParams
+  const { quarter: qParam, hideEmpty: hideEmptyParam } = await searchParams
   const quarters = getGlobalQuarters()
   const quarter = qParam ?? quarters[0] ?? ''
+  const hideEmpty = hideEmptyParam === 'true'
 
   if (!quarter) {
     return (
@@ -33,17 +34,22 @@ export default async function GroupsPage({ searchParams }: GroupsPageProps) {
     )
   }
 
-  const groups = getGroupOverview(quarter)
   const completeness = getDataCompleteness()
 
-  // Get prior quarter data for comparison
+  // Get prior quarter for comparison
   let prevQ: string | null = null
-  let priorGroups: typeof groups = []
   try {
     prevQ = previousQuarter(quarter)
-    priorGroups = getGroupOverview(prevQ)
   } catch {
     // No prior quarter available
+  }
+
+  // When hideEmpty, only include funds with data in BOTH quarters
+  const groups = getGroupOverview(quarter, hideEmpty && prevQ ? prevQ : undefined)
+
+  let priorGroups: typeof groups = []
+  if (prevQ) {
+    priorGroups = getGroupOverview(prevQ, hideEmpty ? quarter : undefined)
   }
   const priorMap = new Map(priorGroups.map((g) => [g.slug, g]))
 
@@ -108,7 +114,7 @@ export default async function GroupsPage({ searchParams }: GroupsPageProps) {
       )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {groups.map((group) => {
+        {groups.filter((g) => !hideEmpty || g.fundsWithData > 0).map((group) => {
           const prior = priorMap.get(group.slug)
           return (
             <Link

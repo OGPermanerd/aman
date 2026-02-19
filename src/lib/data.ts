@@ -48,9 +48,12 @@ export interface GroupOverviewItem {
 /**
  * For each strategy group: fund count, funds with data, aggregate value, top 5 consensus.
  */
-export function getGroupOverview(quarter: string): GroupOverviewItem[] {
+export function getGroupOverview(quarter: string, comparisonQuarter?: string): GroupOverviewItem[] {
   const groups = getAllGroups()
   const result: GroupOverviewItem[] = []
+
+  // When comparisonQuarter is set, only include funds with data in BOTH quarters
+  const requireBothQuarters = !!comparisonQuarter
 
   for (const group of groups) {
     // Get all active funds in this group
@@ -95,6 +98,22 @@ export function getGroupOverview(quarter: string): GroupOverviewItem[] {
 
       const total = rows[0]?.total ?? 0
       if (total > 0) {
+        // If requireBothQuarters, check that the fund also has data in comparisonQuarter
+        if (requireBothQuarters) {
+          const priorRows = db
+            .select({ total: sql<number>`SUM(${holdings.value})` })
+            .from(holdings)
+            .where(
+              and(
+                eq(holdings.fundCik, cik),
+                eq(holdings.reportQuarter, comparisonQuarter),
+                eq(holdings.putCall, ''),
+              ),
+            )
+            .all()
+          const priorTotal = priorRows[0]?.total ?? 0
+          if (priorTotal <= 0) continue // skip fund — no data in comparison quarter
+        }
         aggregateValue += total
         fundsWithDataSet.add(cik)
       }
@@ -834,5 +853,69 @@ export function getQoQFlowData(quarter: string): QoQFlowData | null {
     unchangedValue,
     fundCount,
     groupFlows,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// getGroupQoQFlowData - QoQ flow scoped to a single strategy group
+// ---------------------------------------------------------------------------
+
+export interface GroupQoQFlowData {
+  currentQuarter: string
+  previousQuarter: string
+  previousTotal: number
+  currentTotal: number
+  newValue: number
+  exitedValue: number
+  increasedFrom: number
+  increasedTo: number
+  decreasedFrom: number
+  decreasedTo: number
+  unchangedValue: number
+}
+
+export function getGroupQoQFlowData(strategyGroup: string, quarter: string): GroupQoQFlowData | null {
+  const prevQ = previousQuarter(quarter)
+
+  const groupFunds = db
+    .select({ cik: funds.cik })
+    .from(funds)
+    .where(and(eq(funds.strategyGroup, strategyGroup), eq(funds.active, true)))
+    .all()
+
+  let totalPrev = 0, totalCurr = 0
+  let newValue = 0, exitedValue = 0
+  let increasedFrom = 0, increasedTo = 0
+  let decreasedFrom = 0, decreasedTo = 0
+  let unchangedValue = 0
+  let hasDiffs = false
+
+  for (const fund of groupFunds) {
+    const diff = computeQoQDiff(db, fund.cik, quarter, prevQ)
+    if (diff.diffs.length === 0) continue
+    hasDiffs = true
+
+    for (const d of diff.diffs) {
+      const cv = d.currentValue ?? 0
+      const pv = d.previousValue ?? 0
+      switch (d.changeType) {
+        case 'new': newValue += cv; totalCurr += cv; break
+        case 'exited': exitedValue += pv; totalPrev += pv; break
+        case 'increased': increasedFrom += pv; increasedTo += cv; totalPrev += pv; totalCurr += cv; break
+        case 'decreased': decreasedFrom += pv; decreasedTo += cv; totalPrev += pv; totalCurr += cv; break
+        case 'unchanged': unchangedValue += cv; totalPrev += pv; totalCurr += cv; break
+      }
+    }
+  }
+
+  if (!hasDiffs) return null
+
+  return {
+    currentQuarter: quarter, previousQuarter: prevQ,
+    previousTotal: totalPrev, currentTotal: totalCurr,
+    newValue, exitedValue,
+    increasedFrom, increasedTo,
+    decreasedFrom, decreasedTo,
+    unchangedValue,
   }
 }

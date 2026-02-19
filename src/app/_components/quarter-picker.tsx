@@ -1,6 +1,6 @@
 'use client'
 
-import { useQueryState, parseAsString } from 'nuqs'
+import { useQueryState, parseAsString, parseAsBoolean } from 'nuqs'
 import {
   Select,
   SelectContent,
@@ -19,23 +19,38 @@ export function QuarterPicker({ quarters }: QuarterPickerProps) {
     'quarter',
     parseAsString.withDefault(quarters[0] ?? '').withOptions({ shallow: false }),
   )
+  const [hideEmpty, setHideEmpty] = useQueryState(
+    'hideEmpty',
+    parseAsBoolean.withDefault(false).withOptions({ shallow: false }),
+  )
 
   if (quarters.length === 0) {
     return <span className="text-sm text-muted-foreground">No data available</span>
   }
 
   return (
-    <Select value={quarter} onValueChange={setQuarter}>
-      <SelectTrigger className="w-[140px]">
-        <SelectValue placeholder="Select quarter" />
-      </SelectTrigger>
-      <SelectContent>
-        {quarters.map((q) => (
-          <SelectItem key={q} value={q}>
-            {formatQuarterLabel(q)}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <div className="flex items-center gap-2">
+      <label className="flex items-center gap-1.5 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={hideEmpty}
+          onChange={(e) => setHideEmpty(e.target.checked || null)}
+          className="h-3.5 w-3.5 rounded border-input accent-primary cursor-pointer"
+        />
+        <span className="text-xs text-muted-foreground whitespace-nowrap">Hide empty</span>
+      </label>
+      <Select value={quarter} onValueChange={setQuarter}>
+        <SelectTrigger className="w-[140px]">
+          <SelectValue placeholder="Select quarter" />
+        </SelectTrigger>
+        <SelectContent>
+          {quarters.map((q) => (
+            <SelectItem key={q} value={q}>
+              {formatQuarterLabel(q)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   )
 }

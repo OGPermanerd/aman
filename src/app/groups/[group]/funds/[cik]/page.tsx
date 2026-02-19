@@ -2,12 +2,13 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getFundDetail, getSectorBreakdown, getGlobalQuarters } from '@/lib/data'
 import { slugToGroup, groupToSlug } from '@/lib/slugs'
+import { previousQuarter } from '@/analytics/quarter-utils'
 import { QuarterDisplay } from '@/app/_components/quarter-display'
 import { StatCard } from '@/app/_components/stat-card'
 import { ChangeBadge } from '@/app/_components/change-badge'
 import { HoldingsTable, type HoldingRow } from '@/app/_components/holdings-table'
-import { SectorChart } from '@/app/_components/sector-chart'
-import { formatCurrency, formatNumber } from '@/lib/formatters'
+import { SectorComparisonChart } from '@/app/_components/sector-comparison-chart'
+import { formatCurrency, formatNumber, formatQuarterLabel } from '@/lib/formatters'
 
 interface FundDetailPageProps {
   params: Promise<{ group: string; cik: string }>
@@ -36,6 +37,16 @@ export default async function FundDetailPage({ params, searchParams }: FundDetai
   if (!detail) notFound()
 
   const sectorData = getSectorBreakdown(cik, quarter)
+
+  // Prior quarter sector data for comparison
+  let prevQ: string | null = null
+  let priorSectorData: typeof sectorData = []
+  try {
+    prevQ = previousQuarter(quarter)
+    priorSectorData = getSectorBreakdown(cik, prevQ)
+  } catch {
+    // No prior quarter
+  }
 
   // Prepare serializable holdings data for client component
   const holdingRows: HoldingRow[] = detail.positions.map((pos) => ({
@@ -118,8 +129,14 @@ export default async function FundDetailPage({ params, searchParams }: FundDetai
         <HoldingsTable holdings={holdingRows} quarter={quarter} />
       </div>
 
-      {/* Sector Allocation */}
-      <SectorChart data={sectorData} title="Sector Allocation" />
+      {/* Sector Allocation Comparison */}
+      <SectorComparisonChart
+        current={sectorData}
+        prior={priorSectorData}
+        currentLabel={formatQuarterLabel(quarter)}
+        priorLabel={prevQ ? formatQuarterLabel(prevQ) : 'Prior'}
+        title="Sector Allocation"
+      />
     </div>
   )
 }

@@ -1,12 +1,13 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getGroupDetail, getGroupSectorBreakdown, getGlobalQuarters } from '@/lib/data'
+import { getGroupDetail, getGroupSectorBreakdown, getGlobalQuarters, getGroupQoQFlowData } from '@/lib/data'
 import { slugToGroup } from '@/lib/slugs'
 import { previousQuarter } from '@/analytics/quarter-utils'
 import { QuarterDisplay } from '@/app/_components/quarter-display'
-import { ChangeBadge } from '@/app/_components/change-badge'
-import { SectorChart } from '@/app/_components/sector-chart'
-import { formatCurrency, formatNumber, formatPercent } from '@/lib/formatters'
+import { SectorComparisonChart } from '@/app/_components/sector-comparison-chart'
+import { QoQSankey } from '@/app/charts/qoq-sankey'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { formatCurrency, formatNumber, formatPercent, formatQuarterLabel } from '@/lib/formatters'
 import {
   Table,
   TableBody,
@@ -18,18 +19,19 @@ import {
 
 interface GroupDetailPageProps {
   params: Promise<{ group: string }>
-  searchParams: Promise<{ quarter?: string }>
+  searchParams: Promise<{ quarter?: string; hideEmpty?: string }>
 }
 
 export default async function GroupDetailPage({ params, searchParams }: GroupDetailPageProps) {
   const { group: slug } = await params
-  const { quarter: qParam } = await searchParams
+  const { quarter: qParam, hideEmpty: hideEmptyParam } = await searchParams
 
   const strategyGroup = slugToGroup(slug)
   if (!strategyGroup) notFound()
 
   const quarters = getGlobalQuarters()
   const quarter = qParam ?? quarters[0] ?? ''
+  const hideEmpty = hideEmptyParam === 'true'
 
   if (!quarter) {
     return (
@@ -41,12 +43,16 @@ export default async function GroupDetailPage({ params, searchParams }: GroupDet
 
   const detail = getGroupDetail(strategyGroup, quarter)
   const groupSectorData = getGroupSectorBreakdown(strategyGroup, quarter)
+  const groupFlow = getGroupQoQFlowData(strategyGroup, quarter)
 
   // Get prior quarter data for comparison
+  let prevQ: string | null = null
   let priorDetail: typeof detail | null = null
+  let priorSectorData: typeof groupSectorData = []
   try {
-    const prevQ = previousQuarter(quarter)
+    prevQ = previousQuarter(quarter)
     priorDetail = getGroupDetail(strategyGroup, prevQ)
+    priorSectorData = getGroupSectorBreakdown(strategyGroup, prevQ)
   } catch {
     // No prior quarter
   }
@@ -55,17 +61,23 @@ export default async function GroupDetailPage({ params, searchParams }: GroupDet
   )
 
   // Sort: funds with data first (by portfolio value desc), then funds without data (alphabetically)
-  const sortedFunds = [...detail.funds].sort((a, b) => {
+  const allFunds = [...detail.funds].sort((a, b) => {
     if (a.hasData && !b.hasData) return -1
     if (!a.hasData && b.hasData) return 1
     if (a.hasData && b.hasData) return b.portfolioValue - a.portfolioValue
     return a.name.localeCompare(b.name)
   })
 
-  const fundsWithData = detail.funds.filter((f) => f.hasData).length
-  const aggregateValue = detail.funds.reduce((sum, f) => sum + f.portfolioValue, 0)
+  // When hideEmpty, only show funds with data in BOTH current and prior quarter
+  const displayFunds = hideEmpty
+    ? allFunds.filter((f) => f.hasData && (priorFundMap.get(f.cik)?.hasData ?? false))
+    : allFunds
+
+  // Compute aggregates from the displayed (possibly filtered) funds
+  const fundsWithData = displayFunds.filter((f) => f.hasData).length
+  const aggregateValue = displayFunds.reduce((sum, f) => sum + f.portfolioValue, 0)
   const priorAggregateValue = priorDetail
-    ? priorDetail.funds.reduce((sum, f) => sum + f.portfolioValue, 0)
+    ? displayFunds.reduce((sum, f) => sum + (priorFundMap.get(f.cik)?.portfolioValue ?? 0), 0)
     : 0
   const aggDelta = priorAggregateValue > 0 ? (aggregateValue - priorAggregateValue) / priorAggregateValue : 0
 
@@ -124,7 +136,7 @@ export default async function GroupDetailPage({ params, searchParams }: GroupDet
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sortedFunds.map((fund) => {
+          {displayFunds.map((fund) => {
             const prior = priorFundMap.get(fund.cik)
             const priorValue = prior?.portfolioValue ?? 0
             const valueDelta = priorValue > 0 ? (fund.portfolioValue - priorValue) / priorValue : 0
@@ -162,45 +174,17 @@ export default async function GroupDetailPage({ params, searchParams }: GroupDet
                     <TableCell className="text-right tabular-nums">
                       {formatNumber(fund.holdingCount)}
                     </TableCell>
-                    <TableCell className="text-center">
-                      {fund.qoqSummary.new > 0 ? (
-                        <span className="inline-flex items-center gap-1">
-                          <span className="tabular-nums">{fund.qoqSummary.new}</span>
-                          <ChangeBadge changeType="new" />
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">0</span>
-                      )}
+                    <TableCell className="text-center tabular-nums">
+                      <span className={fund.qoqSummary.new > 0 ? 'text-green-600 font-medium' : 'text-muted-foreground'}>{fund.qoqSummary.new}</span>
                     </TableCell>
-                    <TableCell className="text-center">
-                      {fund.qoqSummary.exited > 0 ? (
-                        <span className="inline-flex items-center gap-1">
-                          <span className="tabular-nums">{fund.qoqSummary.exited}</span>
-                          <ChangeBadge changeType="exited" />
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">0</span>
-                      )}
+                    <TableCell className="text-center tabular-nums">
+                      <span className={fund.qoqSummary.exited > 0 ? 'text-red-600 font-medium' : 'text-muted-foreground'}>{fund.qoqSummary.exited}</span>
                     </TableCell>
-                    <TableCell className="text-center">
-                      {fund.qoqSummary.increased > 0 ? (
-                        <span className="inline-flex items-center gap-1">
-                          <span className="tabular-nums">{fund.qoqSummary.increased}</span>
-                          <ChangeBadge changeType="increased" />
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">0</span>
-                      )}
+                    <TableCell className="text-center tabular-nums">
+                      <span className={fund.qoqSummary.increased > 0 ? 'text-blue-600 font-medium' : 'text-muted-foreground'}>{fund.qoqSummary.increased}</span>
                     </TableCell>
-                    <TableCell className="text-center">
-                      {fund.qoqSummary.decreased > 0 ? (
-                        <span className="inline-flex items-center gap-1">
-                          <span className="tabular-nums">{fund.qoqSummary.decreased}</span>
-                          <ChangeBadge changeType="decreased" />
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">0</span>
-                      )}
+                    <TableCell className="text-center tabular-nums">
+                      <span className={fund.qoqSummary.decreased > 0 ? 'text-orange-600 font-medium' : 'text-muted-foreground'}>{fund.qoqSummary.decreased}</span>
                     </TableCell>
                   </>
                 ) : (
@@ -214,8 +198,46 @@ export default async function GroupDetailPage({ params, searchParams }: GroupDet
         </TableBody>
       </Table>
 
-      {/* Group Sector Allocation */}
-      <SectorChart data={groupSectorData} title="Group Sector Allocation" />
+      {/* Group Capital Flow Sankey */}
+      {groupFlow && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Capital Flow</CardTitle>
+          </CardHeader>
+          <CardContent className="overflow-x-auto">
+            <QoQSankey flow={{
+              previousTotal: groupFlow.previousTotal,
+              currentTotal: groupFlow.currentTotal,
+              newValue: groupFlow.newValue,
+              exitedValue: groupFlow.exitedValue,
+              increasedFrom: groupFlow.increasedFrom,
+              increasedTo: groupFlow.increasedTo,
+              decreasedFrom: groupFlow.decreasedFrom,
+              decreasedTo: groupFlow.decreasedTo,
+              unchangedValue: groupFlow.unchangedValue,
+            }} />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Sector Allocation Comparison */}
+      {priorSectorData.length > 0 ? (
+        <SectorComparisonChart
+          current={groupSectorData}
+          prior={priorSectorData}
+          currentLabel={formatQuarterLabel(quarter)}
+          priorLabel={prevQ ? formatQuarterLabel(prevQ) : 'Prior'}
+          title="Sector Allocation"
+        />
+      ) : (
+        <SectorComparisonChart
+          current={groupSectorData}
+          prior={[]}
+          currentLabel={formatQuarterLabel(quarter)}
+          priorLabel="Prior"
+          title="Sector Allocation"
+        />
+      )}
     </div>
   )
 }
