@@ -1,8 +1,8 @@
 import Link from 'next/link'
-import { getGroupOverview, getGlobalQuarters } from '@/lib/data'
+import { getGroupOverview, getGlobalQuarters, getDataCompleteness } from '@/lib/data'
 import { QuarterDisplay } from '@/app/_components/quarter-display'
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card'
-import { formatCurrency } from '@/lib/formatters'
+import { formatCurrency, formatNumber, formatPercent, formatQuarterLabel } from '@/lib/formatters'
 
 interface GroupsPageProps {
   searchParams: Promise<{ quarter?: string }>
@@ -22,6 +22,15 @@ export default async function GroupsPage({ searchParams }: GroupsPageProps) {
   }
 
   const groups = getGroupOverview(quarter)
+  const completeness = getDataCompleteness()
+
+  const tickerCoverageRatio = completeness.uniqueCusips > 0
+    ? completeness.cusipsResolved / completeness.uniqueCusips
+    : 0
+
+  // Find fund count for current quarter
+  const currentQuarterStats = completeness.quarterCoverage.find((q) => q.quarter === quarter)
+  const fundsReporting = currentQuarterStats?.fundCount ?? 0
 
   return (
     <div className="space-y-6">
@@ -32,6 +41,49 @@ export default async function GroupsPage({ searchParams }: GroupsPageProps) {
         </div>
         <QuarterDisplay quarter={quarter} />
       </div>
+
+      {/* Data completeness stats */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Card>
+          <CardContent className="pt-4 pb-3 px-4">
+            <p className="text-xs font-medium text-muted-foreground">Funds Reporting</p>
+            <p className="text-2xl font-bold tabular-nums">{fundsReporting} <span className="text-sm font-normal text-muted-foreground">/ {completeness.totalFunds}</span></p>
+            <p className="text-xs text-muted-foreground">for {formatQuarterLabel(quarter)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3 px-4">
+            <p className="text-xs font-medium text-muted-foreground">Holdings</p>
+            <p className="text-2xl font-bold tabular-nums">{formatNumber(completeness.totalHoldings)}</p>
+            <p className="text-xs text-muted-foreground">across all quarters</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3 px-4">
+            <p className="text-xs font-medium text-muted-foreground">Ticker Coverage</p>
+            <p className={`text-2xl font-bold tabular-nums ${tickerCoverageRatio >= 0.9 ? 'text-green-600' : tickerCoverageRatio >= 0.7 ? 'text-yellow-600' : 'text-red-600'}`}>
+              {formatPercent(tickerCoverageRatio, 0)}
+            </p>
+            <p className="text-xs text-muted-foreground">{formatNumber(completeness.cusipsResolved)} / {formatNumber(completeness.uniqueCusips)} CUSIPs</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3 px-4">
+            <p className="text-xs font-medium text-muted-foreground">Quarters</p>
+            <p className="text-2xl font-bold tabular-nums">{completeness.quarterCoverage.length}</p>
+            <p className="text-xs text-muted-foreground">
+              <Link href="/status" className="hover:underline">View details &rarr;</Link>
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {tickerCoverageRatio < 0.9 && (
+        <div className="rounded-md border border-yellow-200 bg-yellow-50 px-4 py-2.5 text-sm text-yellow-800 dark:border-yellow-900 dark:bg-yellow-950 dark:text-yellow-200">
+          Ticker resolution in progress. {formatNumber(completeness.cusipsPending + completeness.cusipsUnmapped)} CUSIPs pending.
+          Run <code className="rounded bg-yellow-100 px-1 py-0.5 text-xs dark:bg-yellow-900">pnpm ingest --all</code> to complete.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {groups.map((group) => (

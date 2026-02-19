@@ -1,7 +1,7 @@
 import 'server-only'
 import { db } from '@/db/connection'
 import { funds, holdings, securities } from '@/db/schema'
-import { eq, and, desc, sql } from 'drizzle-orm'
+import { eq, and, desc, sql, countDistinct, count } from 'drizzle-orm'
 import { computePortfolioWeights } from '@/analytics/portfolio-weights'
 import { computeQoQDiff } from '@/analytics/qoq-diff'
 import { computeGroupConsensus } from '@/analytics/group-consensus'
@@ -553,4 +553,141 @@ export function getGroupSectorBreakdown(strategyGroup: string, quarter: string):
 
   result.sort((a, b) => b.weight - a.weight)
   return result
+}
+
+// ---------------------------------------------------------------------------
+// getDataCompleteness - Data quality / completeness tracker
+// ---------------------------------------------------------------------------
+
+export interface DataCompleteness {
+  totalFunds: number
+  fundsWithData: number
+  totalHoldings: number
+  uniqueCusips: number
+  cusipsResolved: number
+  cusipsPending: number
+  cusipsUnmapped: number
+  quarterCoverage: Array<{
+    quarter: string
+    holdingCount: number
+    fundCount: number
+  }>
+  fundCoverage: Array<{
+    cik: string
+    name: string
+    strategyGroup: string
+    quarters: number
+    latestQuarter: string | null
+  }>
+}
+
+/**
+ * Aggregated data completeness stats across funds, holdings, and securities.
+ */
+export function getDataCompleteness(): DataCompleteness {
+  // Total active funds
+  const totalFundsRow = db
+    .select({ cnt: count() })
+    .from(funds)
+    .where(eq(funds.active, true))
+    .all()
+  const totalFunds = totalFundsRow[0]?.cnt ?? 0
+
+  // Funds with at least 1 holding
+  const fundsWithDataRow = db
+    .select({ cnt: countDistinct(holdings.fundCik) })
+    .from(holdings)
+    .all()
+  const fundsWithData = fundsWithDataRow[0]?.cnt ?? 0
+
+  // Total holdings
+  const totalHoldingsRow = db
+    .select({ cnt: count() })
+    .from(holdings)
+    .all()
+  const totalHoldings = totalHoldingsRow[0]?.cnt ?? 0
+
+  // Unique CUSIPs in holdings
+  const uniqueCusipsRow = db
+    .select({ cnt: countDistinct(holdings.cusip) })
+    .from(holdings)
+    .all()
+  const uniqueCusips = uniqueCusipsRow[0]?.cnt ?? 0
+
+  // CUSIPs resolved (in securities table with unmapped=false)
+  const resolvedRow = db
+    .select({ cnt: count() })
+    .from(securities)
+    .where(eq(securities.unmapped, false))
+    .all()
+  const cusipsResolved = resolvedRow[0]?.cnt ?? 0
+
+  // CUSIPs explicitly unmapped (in securities table with unmapped=true)
+  const unmappedRow = db
+    .select({ cnt: count() })
+    .from(securities)
+    .where(eq(securities.unmapped, true))
+    .all()
+  const cusipsUnmapped = unmappedRow[0]?.cnt ?? 0
+
+  // CUSIPs in holdings but not in securities table at all
+  const pendingRow = db.all<{ cnt: number }>(sql`
+    SELECT COUNT(DISTINCT h.cusip) as cnt
+    FROM holdings h
+    LEFT JOIN securities s ON h.cusip = s.cusip
+    WHERE s.cusip IS NULL
+  `)
+  const cusipsPending = pendingRow[0]?.cnt ?? 0
+
+  // Per-quarter coverage
+  const quarterCoverage = db
+    .select({
+      quarter: holdings.reportQuarter,
+      holdingCount: count(),
+      fundCount: countDistinct(holdings.fundCik),
+    })
+    .from(holdings)
+    .groupBy(holdings.reportQuarter)
+    .orderBy(desc(holdings.reportQuarter))
+    .all()
+
+  // Per-fund coverage
+  const fundCoverage = db
+    .select({
+      cik: funds.cik,
+      name: funds.name,
+      strategyGroup: funds.strategyGroup,
+    })
+    .from(funds)
+    .where(eq(funds.active, true))
+    .orderBy(funds.strategyGroup, funds.name)
+    .all()
+    .map((f) => {
+      const quarterRows = db
+        .selectDistinct({ q: holdings.reportQuarter })
+        .from(holdings)
+        .where(eq(holdings.fundCik, f.cik))
+        .orderBy(desc(holdings.reportQuarter))
+        .all()
+
+      return {
+        cik: f.cik,
+        name: f.name,
+        strategyGroup: f.strategyGroup,
+        quarters: quarterRows.length,
+        latestQuarter: quarterRows[0]?.q ?? null,
+      }
+    })
+
+  return {
+    totalFunds,
+    fundsWithData,
+    totalHoldings,
+    uniqueCusips,
+    cusipsResolved,
+    cusipsPending,
+    cusipsUnmapped,
+    quarterCoverage,
+    fundCoverage,
+  }
 }
