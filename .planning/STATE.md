@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-19)
 
 **Core value:** Instantly see how strategy-grouped hedge funds changed their portfolios between quarters
-**Current focus:** Phase 2 - Analytics Engine (COMPLETE)
+**Current focus:** Phase 3 - Dashboard (IN PROGRESS)
 
 ## Current Position
 
-Phase: 2 of 3 (Analytics Engine) -- COMPLETE
-Plan: 2 of 2 in current phase (02-02 complete)
-Status: Phase Complete
-Last activity: 2026-02-19 -- Completed 02-02-PLAN.md
+Phase: 3 of 3 (Dashboard)
+Plan: 1 of 3 in current phase (03-01 complete)
+Status: In Progress
+Last activity: 2026-02-19 -- Completed 03-01-PLAN.md
 
-Progress: [██████░░░░] 56%
+Progress: [███████░░░] 67%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
-- Average duration: 4min
-- Total execution time: 0.37 hours
+- Total plans completed: 6
+- Average duration: 5min
+- Total execution time: 0.50 hours
 
 **By Phase:**
 
@@ -29,10 +29,11 @@ Progress: [██████░░░░] 56%
 |-------|-------|-------|----------|
 | 01-data-foundation | 3/3 | 15min | 5min |
 | 02-analytics-engine | 2/2 | 7min | 3.5min |
+| 03-dashboard | 1/3 | 8min | 8min |
 
 **Recent Trend:**
-- Last 5 plans: 01-02 (5min), 01-03 (5min), 02-01 (4min), 02-02 (3min)
-- Trend: improving
+- Last 5 plans: 01-03 (5min), 02-01 (4min), 02-02 (3min), 03-01 (8min)
+- Trend: stable (03-01 larger scope: full Next.js setup + data layer)
 
 *Updated after each plan completion*
 
@@ -60,6 +61,9 @@ Recent decisions affecting current work:
 - [02-02]: Query funds individually in group consensus for adapter portability (not inArray)
 - [02-02]: Consecutive additions walk backwards through available quarters, stop at gaps
 - [02-02]: Conviction is dual-signal classifier: weight > 5% AND/OR consecutiveAdditions >= 2
+- [03-01]: Removed .js extensions from all relative imports for Turbopack bundler compatibility
+- [03-01]: Used nuqs with parseAsString for quarter URL state sync
+- [03-01]: HMR-safe database singleton via globalThis pattern for Next.js dev
 
 ### Pending Todos
 
@@ -74,5 +78,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-19
-Stopped at: Completed 02-02-PLAN.md (Aggregation Analytics: Group Consensus & Conviction Scoring) -- Phase 2 COMPLETE
-Resume file: .planning/phases/02-analytics-engine/02-02-SUMMARY.md
+Stopped at: Completed 03-01-PLAN.md (Next.js Foundation: App Shell, Data Layer & Shared Components)
+Resume file: .planning/phases/03-dashboard/03-01-SUMMARY.md
