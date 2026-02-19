@@ -26,8 +26,12 @@ export function getDb(dbPath: string = DEFAULT_DB_PATH): DbConnection {
   return { db, sqlite };
 }
 
-// Default singleton connection for the main application database
-const defaultConnection: DbConnection = getDb();
+// HMR-safe singleton: prevent multiple connections during Next.js development
+const globalForDb = globalThis as unknown as { __hedgelens_db?: DbConnection }
+const defaultConnection = globalForDb.__hedgelens_db ?? getDb()
+if (process.env.NODE_ENV !== 'production') {
+  globalForDb.__hedgelens_db = defaultConnection
+}
 
 /** Drizzle ORM instance for the default hedgelens.db */
 export const db: BetterSQLite3Database<typeof schema> = defaultConnection.db;
