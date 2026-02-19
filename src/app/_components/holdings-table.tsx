@@ -9,6 +9,7 @@ import {
   type ColumnDef,
   type SortingState,
 } from '@tanstack/react-table'
+import Link from 'next/link'
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import {
   Table,
@@ -86,24 +87,28 @@ function SortIcon({ isSorted }: { isSorted: false | 'asc' | 'desc' }) {
   return <ArrowUpDown className="ml-1 h-3.5 w-3.5 inline opacity-50" />
 }
 
-const columns: ColumnDef<HoldingRow>[] = [
+function getColumns(quarter: string): ColumnDef<HoldingRow>[] {
+  return [
   {
     accessorKey: 'nameOfIssuer',
     header: 'Name',
     cell: ({ row }) => {
       const ticker = row.original.ticker
       const name = row.original.nameOfIssuer
+      const cusip = row.original.cusip
 
       return (
         <div className="min-w-[160px]">
-          {ticker ? (
-            <>
-              <span className="font-semibold">{ticker}</span>
-              <span className="text-muted-foreground text-xs ml-1.5">{name}</span>
-            </>
-          ) : (
-            <span className="font-medium">{name}</span>
-          )}
+          <Link href={`/positions/${cusip}?quarter=${quarter}`} className="hover:underline">
+            {ticker ? (
+              <>
+                <span className="font-semibold">{ticker}</span>
+                <span className="text-muted-foreground text-xs ml-1.5">{name}</span>
+              </>
+            ) : (
+              <span className="font-medium">{name}</span>
+            )}
+          </Link>
         </div>
       )
     },
@@ -166,8 +171,10 @@ const columns: ColumnDef<HoldingRow>[] = [
     },
   },
 ]
+}
 
 export function HoldingsTable({ holdings, quarter }: HoldingsTableProps) {
+  const columns = getColumns(quarter)
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'weight', desc: true },
   ])
