@@ -75,13 +75,9 @@ function insertHoldings(
       filingAccession: h.filingAccession,
     }));
 
-    if (action === 'merge') {
-      // NEW HOLDINGS amendment: add new rows only, skip duplicates
-      db.insert(holdings).values(values).onConflictDoNothing().run();
-    } else {
-      // insert or replace: straight insert (replace already deleted old rows)
-      db.insert(holdings).values(values).run();
-    }
+    // onConflictDoNothing for all cases: merge needs it for additive amendments,
+    // insert/replace may hit duplicates from multi-manager filings or re-runs
+    db.insert(holdings).values(values).onConflictDoNothing().run();
 
     inserted += batch.length;
   }

@@ -1,7 +1,7 @@
 {
   "funds": [
     {
-      "cik": "1061768",
+      "cik": "1061165",
       "name": "Lone Pine Capital",
       "strategyGroup": "Tiger Cubs"
     },
@@ -76,7 +76,7 @@
       "strategyGroup": "Activist"
     },
     {
-      "cik": "1072598",
+      "cik": "1418814",
       "name": "ValueAct Capital",
       "strategyGroup": "Activist"
     },
@@ -116,7 +116,7 @@
       "strategyGroup": "Macro"
     },
     {
-      "cik": "1040280",
+      "cik": "872573",
       "name": "Caxton Associates",
       "strategyGroup": "Macro"
     },
@@ -201,7 +201,7 @@
       "strategyGroup": "Quant"
     },
     {
-      "cik": "1082349",
+      "cik": "1061768",
       "name": "Baupost Group",
       "strategyGroup": "Multi-Strategy"
     },

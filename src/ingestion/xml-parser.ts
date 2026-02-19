@@ -16,7 +16,7 @@ const parser = new XMLParser({
     return jpath === 'informationTable.infoTable';
   },
   ignoreAttributes: true,
-  parseTagValue: true,
+  parseTagValue: false, // Keep all values as strings — CUSIPs like "37959E106" get mangled as scientific notation otherwise
   trimValues: true,
 });
 
@@ -28,24 +28,24 @@ export interface RawHolding {
   nameOfIssuer: string;
   titleOfClass: string;
   cusip: string;
-  value: number;
+  value: string | number; // string when parseTagValue is false
   shrsOrPrnAmt: {
-    sshPrnamt: number;
+    sshPrnamt: string | number;
     sshPrnamtType: string; // "SH" | "PRN"
   };
-  putCall?: 'Put' | 'Call';
+  putCall?: string; // "Put" | "Call"
   investmentDiscretion: string;
   votingAuthority?: {
-    Sole: number;
-    Shared: number;
-    None: number;
+    Sole: string | number;
+    Shared: string | number;
+    None: string | number;
   };
 }
 
 export interface CoverPageData {
   reportCalendarOrQuarter: string;
   isAmendment: boolean;
-  amendmentNo: number | undefined;
+  amendmentNo: number | string | undefined;
   amendmentType: 'RESTATEMENT' | 'NEW HOLDINGS' | undefined;
   confDeniedExpired: boolean | undefined;
   filingManagerName: string;

@@ -76,12 +76,14 @@ export interface NormalizeContext {
  * - Maps putCall: undefined -> "" (empty string for equity, avoids NULL in PK)
  * - Extracts shares and shareType from shrsOrPrnAmt
  * - Validates CUSIP is 9 characters (warning only, does not drop)
+ * - Deduplicates by (cusip, putCall) — some filings list the same security
+ *   multiple times across sub-advisors; we aggregate shares and value.
  */
 export function normalizeHoldings(
   rawHoldings: RawHolding[],
   context: NormalizeContext,
 ): NormalizedHolding[] {
-  return rawHoldings.map((raw) => {
+  const rows = rawHoldings.map((raw) => {
     const cusip = String(raw.cusip).trim();
     if (cusip.length < 6 || cusip.length > 9) {
       console.warn(
@@ -103,4 +105,19 @@ export function normalizeHoldings(
       filingAccession: context.accessionNumber,
     };
   });
+
+  // Deduplicate by (cusip, putCall) — aggregate shares and value
+  const deduped = new Map<string, NormalizedHolding>();
+  for (const row of rows) {
+    const key = `${row.cusip}|${row.putCall}`;
+    const existing = deduped.get(key);
+    if (existing) {
+      existing.value += row.value;
+      existing.shares += row.shares;
+    } else {
+      deduped.set(key, { ...row });
+    }
+  }
+
+  return Array.from(deduped.values());
 }
