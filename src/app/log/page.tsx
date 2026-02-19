@@ -11,6 +11,20 @@ interface PlanningDoc {
   name: string
   relativePath: string
   content: string
+  summary: string
+}
+
+function extractSummary(content: string): string {
+  const lines = content.split('\n').map((l) => l.trim()).filter(Boolean)
+  // Skip the first heading, return the first non-heading non-empty line
+  for (const line of lines) {
+    if (line.startsWith('#')) continue
+    if (line.startsWith('---')) continue
+    if (line.startsWith('**') && line.endsWith('**')) continue
+    // Truncate long lines
+    return line.length > 120 ? line.slice(0, 117) + '...' : line
+  }
+  return lines[0] ?? ''
 }
 
 function readPlanningDocs(dir: string, basePath: string): PlanningDoc[] {
@@ -23,10 +37,12 @@ function readPlanningDocs(dir: string, basePath: string): PlanningDoc[] {
     if (entry.isDirectory()) {
       docs.push(...readPlanningDocs(fullPath, basePath))
     } else if (entry.name.endsWith('.md')) {
+      const content = readFileSync(fullPath, 'utf-8')
       docs.push({
         name: entry.name,
         relativePath: relative(basePath, fullPath),
-        content: readFileSync(fullPath, 'utf-8'),
+        content,
+        summary: extractSummary(content),
       })
     }
   }
@@ -97,7 +113,7 @@ const BUILD_STATS = {
   plans: 8,
   totalCommits: 37,
   executionPlans: 8,
-  planExecutionTime: '~37 min',
+  humanTimeInvested: '~37 min',
   estimatedTokens: '~2M',
   testsWritten: 33,
   requirements: 27,
@@ -179,6 +195,9 @@ export default function LogPage() {
   const allDocs = readPlanningDocs(planningDir, planningDir)
   const { topLevel, phases } = organizeByPhase(allDocs)
 
+  const fixes = ITERATION_LOG.filter((item) => item.type === 'bug')
+  const features = ITERATION_LOG.filter((item) => item.type === 'feature')
+
   return (
     <div className="space-y-8">
       <div>
@@ -199,7 +218,7 @@ export default function LogPage() {
             <StatBox label="Phases" value={String(BUILD_STATS.phases)} />
             <StatBox label="Execution Plans" value={String(BUILD_STATS.executionPlans)} />
             <StatBox label="Total Commits" value={String(BUILD_STATS.totalCommits)} />
-            <StatBox label="Plan Execution" value={BUILD_STATS.planExecutionTime} />
+            <StatBox label="Human Time Invested" value={BUILD_STATS.humanTimeInvested} />
             <StatBox label="Est. Tokens" value={BUILD_STATS.estimatedTokens} />
             <StatBox label="Requirements" value={String(BUILD_STATS.requirements)} />
             <StatBox label="Tests Written" value={String(BUILD_STATS.testsWritten)} />
@@ -208,7 +227,7 @@ export default function LogPage() {
             <p>
               Built from {BUILD_STATS.startTime} to {BUILD_STATS.endTime} UTC.
               {' '}{BUILD_STATS.executionPlans} execution plans across {BUILD_STATS.phases} phases,
-              {' '}{BUILD_STATS.planExecutionTime} total plan execution time.
+              {' '}{BUILD_STATS.humanTimeInvested} total human time invested.
               Estimated {BUILD_STATS.estimatedTokens} tokens
               ({BUILD_STATS.executionPlans} plans x ~50K avg per plan execution + research + iteration).
             </p>
@@ -227,24 +246,40 @@ export default function LogPage() {
             Post-v1 sessions: debugging, data corrections, and feature additions based on user testing
           </p>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {ITERATION_LOG.map((item, i) => (
-              <div key={i} className="flex items-start gap-3 rounded-lg border p-3">
-                <Badge
-                  variant={item.type === 'bug' ? 'destructive' : 'default'}
-                  className="mt-0.5 shrink-0"
-                >
-                  {item.type === 'bug' ? 'Fix' : 'Feature'}
-                </Badge>
-                <div className="min-w-0">
+        <CardContent className="space-y-4">
+          {/* Fixes */}
+          <details className="group rounded-lg border">
+            <summary className="cursor-pointer px-4 py-3 flex items-center gap-2 hover:bg-accent/50 transition-colors">
+              <span className="font-medium text-sm">Fixes</span>
+              <Badge variant="destructive">{fixes.length}</Badge>
+            </summary>
+            <div className="border-t px-4 py-3 space-y-2">
+              {fixes.map((item, i) => (
+                <div key={i} className="rounded-lg border p-3">
                   <p className="font-medium text-sm">{item.title}</p>
                   <p className="text-sm text-muted-foreground mt-0.5">{item.description}</p>
                   <code className="text-xs text-muted-foreground mt-1 inline-block">{item.commit}</code>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </details>
+
+          {/* Feedback -> Features */}
+          <details className="group rounded-lg border">
+            <summary className="cursor-pointer px-4 py-3 flex items-center gap-2 hover:bg-accent/50 transition-colors">
+              <span className="font-medium text-sm">Feedback &rarr; Features</span>
+              <Badge>{features.length}</Badge>
+            </summary>
+            <div className="border-t px-4 py-3 space-y-2">
+              {features.map((item, i) => (
+                <div key={i} className="rounded-lg border p-3">
+                  <p className="font-medium text-sm">{item.title}</p>
+                  <p className="text-sm text-muted-foreground mt-0.5">{item.description}</p>
+                  <code className="text-xs text-muted-foreground mt-1 inline-block">{item.commit}</code>
+                </div>
+              ))}
+            </div>
+          </details>
         </CardContent>
       </Card>
 
@@ -302,8 +337,9 @@ function StatBox({ label, value }: { label: string; value: string }) {
 function DocAccordion({ doc }: { doc: PlanningDoc }) {
   return (
     <details className="group rounded-lg border">
-      <summary className="cursor-pointer px-4 py-2 text-sm font-medium hover:bg-accent/50 transition-colors">
-        <span className="ml-1">{doc.relativePath}</span>
+      <summary className="cursor-pointer px-4 py-2 text-sm hover:bg-accent/50 transition-colors">
+        <span className="ml-1 font-medium">{doc.relativePath}</span>
+        <span className="ml-2 text-muted-foreground text-xs">{doc.summary}</span>
       </summary>
       <div className="border-t px-4 py-3">
         <pre className="text-xs whitespace-pre-wrap overflow-x-auto text-muted-foreground leading-relaxed">
