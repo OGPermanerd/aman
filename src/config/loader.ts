@@ -13,13 +13,7 @@ import type * as schema from '../db/schema';
 const FundEntrySchema = z.object({
   cik: z.string(),
   name: z.string(),
-  strategyGroup: z.enum([
-    'Tiger Cubs',
-    'Activist',
-    'Macro',
-    'Quant',
-    'Multi-Strategy',
-  ]),
+  strategyGroup: z.string().min(1),
 });
 
 const FundConfigSchema = z.object({

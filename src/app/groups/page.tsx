@@ -1,11 +1,23 @@
 import Link from 'next/link'
 import { getGroupOverview, getGlobalQuarters, getDataCompleteness } from '@/lib/data'
+import { previousQuarter } from '@/analytics/quarter-utils'
 import { QuarterDisplay } from '@/app/_components/quarter-display'
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card'
 import { formatCurrency, formatNumber, formatPercent, formatQuarterLabel } from '@/lib/formatters'
 
 interface GroupsPageProps {
   searchParams: Promise<{ quarter?: string }>
+}
+
+function DeltaBadge({ current, prior }: { current: number; prior: number }) {
+  if (prior === 0) return null
+  const pct = (current - prior) / prior
+  const isPositive = pct >= 0
+  return (
+    <span className={`text-xs font-medium tabular-nums ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+      {isPositive ? '+' : ''}{formatPercent(pct, 1)}
+    </span>
+  )
 }
 
 export default async function GroupsPage({ searchParams }: GroupsPageProps) {
@@ -24,11 +36,21 @@ export default async function GroupsPage({ searchParams }: GroupsPageProps) {
   const groups = getGroupOverview(quarter)
   const completeness = getDataCompleteness()
 
+  // Get prior quarter data for comparison
+  let prevQ: string | null = null
+  let priorGroups: typeof groups = []
+  try {
+    prevQ = previousQuarter(quarter)
+    priorGroups = getGroupOverview(prevQ)
+  } catch {
+    // No prior quarter available
+  }
+  const priorMap = new Map(priorGroups.map((g) => [g.slug, g]))
+
   const tickerCoverageRatio = completeness.uniqueCusips > 0
     ? completeness.cusipsResolved / completeness.uniqueCusips
     : 0
 
-  // Find fund count for current quarter
   const currentQuarterStats = completeness.quarterCoverage.find((q) => q.quarter === quarter)
   const fundsReporting = currentQuarterStats?.fundCount ?? 0
 
@@ -86,52 +108,65 @@ export default async function GroupsPage({ searchParams }: GroupsPageProps) {
       )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {groups.map((group) => (
-          <Link
-            key={group.slug}
-            href={`/groups/${group.slug}?quarter=${quarter}`}
-            className="block transition-shadow hover:shadow-md rounded-xl"
-          >
-            <Card className="h-full">
-              <CardHeader>
-                <CardTitle className="text-lg">{group.name}</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  {group.fundsWithData} of {group.fundCount} funds reporting
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {group.fundsWithData > 0 ? (
-                  <>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Aggregate Value</p>
-                      <p className="text-2xl font-bold tabular-nums">{formatCurrency(group.aggregateValue)}</p>
-                    </div>
-                    {group.topHoldings.length > 0 && (
+        {groups.map((group) => {
+          const prior = priorMap.get(group.slug)
+          return (
+            <Link
+              key={group.slug}
+              href={`/groups/${group.slug}?quarter=${quarter}`}
+              className="block transition-shadow hover:shadow-md rounded-xl"
+            >
+              <Card className="h-full">
+                <CardHeader>
+                  <CardTitle className="text-lg">{group.name}</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {group.fundsWithData} of {group.fundCount} funds reporting
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {group.fundsWithData > 0 ? (
+                    <>
                       <div>
-                        <p className="text-sm font-medium text-muted-foreground mb-1">Top Consensus Holdings</p>
-                        <ul className="space-y-0.5">
-                          {group.topHoldings.map((h) => (
-                            <li key={h.cusip} className="text-sm">
-                              <span className="font-medium">{h.ticker ?? h.nameOfIssuer}</span>
-                              <span className="text-muted-foreground">
-                                {' '}({h.fundCount} of {group.fundsWithData} funds)
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
+                        <p className="text-sm font-medium text-muted-foreground">Aggregate Value</p>
+                        <div className="flex items-baseline gap-2">
+                          <p className="text-2xl font-bold tabular-nums">{formatCurrency(group.aggregateValue)}</p>
+                          {prior && prior.aggregateValue > 0 && (
+                            <DeltaBadge current={group.aggregateValue} prior={prior.aggregateValue} />
+                          )}
+                        </div>
+                        {prior && prior.aggregateValue > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            Prior: {formatCurrency(prior.aggregateValue)}
+                          </p>
+                        )}
                       </div>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground italic">No data for this quarter</p>
-                )}
-              </CardContent>
-              <CardFooter>
-                <span className="text-sm text-muted-foreground">View funds &rarr;</span>
-              </CardFooter>
-            </Card>
-          </Link>
-        ))}
+                      {group.topHoldings.length > 0 && (
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground mb-1">Top Consensus Holdings</p>
+                          <ul className="space-y-0.5">
+                            {group.topHoldings.map((h) => (
+                              <li key={h.cusip} className="text-sm">
+                                <span className="font-medium">{h.ticker ?? h.nameOfIssuer}</span>
+                                <span className="text-muted-foreground">
+                                  {' '}({h.fundCount} of {group.fundsWithData} funds)
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">No data for this quarter</p>
+                  )}
+                </CardContent>
+                <CardFooter>
+                  <span className="text-sm text-muted-foreground">View funds &rarr;</span>
+                </CardFooter>
+              </Card>
+            </Link>
+          )
+        })}
       </div>
     </div>
   )

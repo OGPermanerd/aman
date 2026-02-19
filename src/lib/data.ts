@@ -691,3 +691,148 @@ export function getDataCompleteness(): DataCompleteness {
     fundCoverage,
   }
 }
+
+// ---------------------------------------------------------------------------
+// getQoQFlowData - Aggregated QoQ dollar flow for Sankey chart
+// ---------------------------------------------------------------------------
+
+export interface QoQFlowData {
+  currentQuarter: string
+  previousQuarter: string
+  previousTotal: number
+  currentTotal: number
+  newValue: number
+  exitedValue: number
+  increasedFrom: number
+  increasedTo: number
+  decreasedFrom: number
+  decreasedTo: number
+  unchangedValue: number
+  fundCount: number
+  // Per-group breakdown
+  groupFlows: Array<{
+    group: string
+    previousTotal: number
+    currentTotal: number
+    newValue: number
+    exitedValue: number
+    increasedDelta: number
+    decreasedDelta: number
+  }>
+}
+
+/**
+ * Aggregate QoQ dollar flows across all funds for the Sankey chart.
+ */
+export function getQoQFlowData(quarter: string): QoQFlowData | null {
+  const prevQ = previousQuarter(quarter)
+
+  const activeFunds = db
+    .select({ cik: funds.cik, strategyGroup: funds.strategyGroup })
+    .from(funds)
+    .where(eq(funds.active, true))
+    .all()
+
+  let totalPrev = 0
+  let totalCurr = 0
+  let newValue = 0
+  let exitedValue = 0
+  let increasedFrom = 0
+  let increasedTo = 0
+  let decreasedFrom = 0
+  let decreasedTo = 0
+  let unchangedValue = 0
+  let fundCount = 0
+
+  const groupMap = new Map<string, {
+    previousTotal: number
+    currentTotal: number
+    newValue: number
+    exitedValue: number
+    increasedDelta: number
+    decreasedDelta: number
+  }>()
+
+  for (const fund of activeFunds) {
+    const diff = computeQoQDiff(db, fund.cik, quarter, prevQ)
+    if (diff.diffs.length === 0) continue
+    fundCount++
+
+    const gKey = fund.strategyGroup
+    if (!groupMap.has(gKey)) {
+      groupMap.set(gKey, {
+        previousTotal: 0, currentTotal: 0,
+        newValue: 0, exitedValue: 0,
+        increasedDelta: 0, decreasedDelta: 0,
+      })
+    }
+    const gData = groupMap.get(gKey)!
+
+    for (const d of diff.diffs) {
+      const cv = d.currentValue ?? 0
+      const pv = d.previousValue ?? 0
+
+      switch (d.changeType) {
+        case 'new':
+          newValue += cv
+          gData.newValue += cv
+          gData.currentTotal += cv
+          totalCurr += cv
+          break
+        case 'exited':
+          exitedValue += pv
+          gData.exitedValue += pv
+          gData.previousTotal += pv
+          totalPrev += pv
+          break
+        case 'increased':
+          increasedFrom += pv
+          increasedTo += cv
+          gData.increasedDelta += cv - pv
+          gData.previousTotal += pv
+          gData.currentTotal += cv
+          totalPrev += pv
+          totalCurr += cv
+          break
+        case 'decreased':
+          decreasedFrom += pv
+          decreasedTo += cv
+          gData.decreasedDelta += pv - cv
+          gData.previousTotal += pv
+          gData.currentTotal += cv
+          totalPrev += pv
+          totalCurr += cv
+          break
+        case 'unchanged':
+          unchangedValue += cv
+          gData.previousTotal += pv
+          gData.currentTotal += cv
+          totalPrev += pv
+          totalCurr += cv
+          break
+      }
+    }
+  }
+
+  if (fundCount === 0) return null
+
+  const groupFlows = Array.from(groupMap.entries())
+    .map(([group, data]) => ({ group, ...data }))
+    .sort((a, b) => b.currentTotal - a.currentTotal)
+
+  return {
+    currentQuarter: quarter,
+    previousQuarter: prevQ,
+    previousTotal: totalPrev,
+    currentTotal: totalCurr,
+    newValue,
+    exitedValue,
+    increasedFrom,
+    increasedTo,
+    decreasedFrom,
+    decreasedTo,
+    unchangedValue,
+    fundCount,
+    groupFlows,
+  }
+}

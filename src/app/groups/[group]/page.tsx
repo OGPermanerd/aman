@@ -2,10 +2,11 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getGroupDetail, getGroupSectorBreakdown, getGlobalQuarters } from '@/lib/data'
 import { slugToGroup } from '@/lib/slugs'
+import { previousQuarter } from '@/analytics/quarter-utils'
 import { QuarterDisplay } from '@/app/_components/quarter-display'
 import { ChangeBadge } from '@/app/_components/change-badge'
 import { SectorChart } from '@/app/_components/sector-chart'
-import { formatCurrency, formatNumber } from '@/lib/formatters'
+import { formatCurrency, formatNumber, formatPercent } from '@/lib/formatters'
 import {
   Table,
   TableBody,
@@ -41,6 +42,18 @@ export default async function GroupDetailPage({ params, searchParams }: GroupDet
   const detail = getGroupDetail(strategyGroup, quarter)
   const groupSectorData = getGroupSectorBreakdown(strategyGroup, quarter)
 
+  // Get prior quarter data for comparison
+  let priorDetail: typeof detail | null = null
+  try {
+    const prevQ = previousQuarter(quarter)
+    priorDetail = getGroupDetail(strategyGroup, prevQ)
+  } catch {
+    // No prior quarter
+  }
+  const priorFundMap = new Map(
+    priorDetail?.funds.map((f) => [f.cik, f]) ?? [],
+  )
+
   // Sort: funds with data first (by portfolio value desc), then funds without data (alphabetically)
   const sortedFunds = [...detail.funds].sort((a, b) => {
     if (a.hasData && !b.hasData) return -1
@@ -51,6 +64,10 @@ export default async function GroupDetailPage({ params, searchParams }: GroupDet
 
   const fundsWithData = detail.funds.filter((f) => f.hasData).length
   const aggregateValue = detail.funds.reduce((sum, f) => sum + f.portfolioValue, 0)
+  const priorAggregateValue = priorDetail
+    ? priorDetail.funds.reduce((sum, f) => sum + f.portfolioValue, 0)
+    : 0
+  const aggDelta = priorAggregateValue > 0 ? (aggregateValue - priorAggregateValue) / priorAggregateValue : 0
 
   return (
     <div className="space-y-6">
@@ -68,7 +85,7 @@ export default async function GroupDetailPage({ params, searchParams }: GroupDet
         </div>
       </div>
 
-      <div className="flex gap-6 text-sm">
+      <div className="flex flex-wrap gap-6 text-sm">
         <div>
           <span className="text-muted-foreground">Total Funds: </span>
           <span className="font-semibold">{detail.funds.length}</span>
@@ -77,9 +94,19 @@ export default async function GroupDetailPage({ params, searchParams }: GroupDet
           <span className="text-muted-foreground">Reporting: </span>
           <span className="font-semibold">{fundsWithData}</span>
         </div>
-        <div>
+        <div className="flex items-baseline gap-1.5">
           <span className="text-muted-foreground">Aggregate Value: </span>
           <span className="font-semibold">{formatCurrency(aggregateValue)}</span>
+          {priorAggregateValue > 0 && (
+            <>
+              <span className={`text-xs font-medium tabular-nums ${aggDelta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {aggDelta >= 0 ? '+' : ''}{formatPercent(aggDelta, 1)}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                (prior: {formatCurrency(priorAggregateValue)})
+              </span>
+            </>
+          )}
         </div>
       </div>
 
@@ -88,6 +115,7 @@ export default async function GroupDetailPage({ params, searchParams }: GroupDet
           <TableRow>
             <TableHead className="w-[250px]">Fund Name</TableHead>
             <TableHead className="text-right">Portfolio Value</TableHead>
+            <TableHead className="text-right">QoQ %</TableHead>
             <TableHead className="text-right">Holdings</TableHead>
             <TableHead className="text-center">New</TableHead>
             <TableHead className="text-center">Exit</TableHead>
@@ -96,76 +124,93 @@ export default async function GroupDetailPage({ params, searchParams }: GroupDet
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sortedFunds.map((fund) => (
-            <TableRow key={fund.cik}>
-              <TableCell>
-                {fund.hasData ? (
-                  <Link
-                    href={`/groups/${slug}/funds/${fund.cik}?quarter=${quarter}`}
-                    className="font-medium hover:underline"
-                  >
-                    {fund.name}
-                  </Link>
-                ) : (
-                  <span className="font-medium text-muted-foreground">{fund.name}</span>
-                )}
-              </TableCell>
-              {fund.hasData ? (
-                <>
-                  <TableCell className="text-right tabular-nums">
-                    {formatCurrency(fund.portfolioValue)}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {formatNumber(fund.holdingCount)}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {fund.qoqSummary.new > 0 ? (
-                      <span className="inline-flex items-center gap-1">
-                        <span className="tabular-nums">{fund.qoqSummary.new}</span>
-                        <ChangeBadge changeType="new" />
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">0</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {fund.qoqSummary.exited > 0 ? (
-                      <span className="inline-flex items-center gap-1">
-                        <span className="tabular-nums">{fund.qoqSummary.exited}</span>
-                        <ChangeBadge changeType="exited" />
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">0</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {fund.qoqSummary.increased > 0 ? (
-                      <span className="inline-flex items-center gap-1">
-                        <span className="tabular-nums">{fund.qoqSummary.increased}</span>
-                        <ChangeBadge changeType="increased" />
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">0</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {fund.qoqSummary.decreased > 0 ? (
-                      <span className="inline-flex items-center gap-1">
-                        <span className="tabular-nums">{fund.qoqSummary.decreased}</span>
-                        <ChangeBadge changeType="decreased" />
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">0</span>
-                    )}
-                  </TableCell>
-                </>
-              ) : (
-                <TableCell colSpan={6} className="text-center text-muted-foreground italic">
-                  No data for this quarter
+          {sortedFunds.map((fund) => {
+            const prior = priorFundMap.get(fund.cik)
+            const priorValue = prior?.portfolioValue ?? 0
+            const valueDelta = priorValue > 0 ? (fund.portfolioValue - priorValue) / priorValue : 0
+            return (
+              <TableRow key={fund.cik}>
+                <TableCell>
+                  {fund.hasData ? (
+                    <Link
+                      href={`/groups/${slug}/funds/${fund.cik}?quarter=${quarter}`}
+                      className="font-medium hover:underline"
+                    >
+                      {fund.name}
+                    </Link>
+                  ) : (
+                    <span className="font-medium text-muted-foreground">{fund.name}</span>
+                  )}
                 </TableCell>
-              )}
-            </TableRow>
-          ))}
+                {fund.hasData ? (
+                  <>
+                    <TableCell className="text-right">
+                      <div className="tabular-nums">{formatCurrency(fund.portfolioValue)}</div>
+                      {priorValue > 0 && (
+                        <div className="text-xs text-muted-foreground tabular-nums">{formatCurrency(priorValue)}</div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {priorValue > 0 ? (
+                        <span className={`text-sm font-medium tabular-nums ${valueDelta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {valueDelta >= 0 ? '+' : ''}{formatPercent(valueDelta, 1)}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatNumber(fund.holdingCount)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {fund.qoqSummary.new > 0 ? (
+                        <span className="inline-flex items-center gap-1">
+                          <span className="tabular-nums">{fund.qoqSummary.new}</span>
+                          <ChangeBadge changeType="new" />
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">0</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {fund.qoqSummary.exited > 0 ? (
+                        <span className="inline-flex items-center gap-1">
+                          <span className="tabular-nums">{fund.qoqSummary.exited}</span>
+                          <ChangeBadge changeType="exited" />
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">0</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {fund.qoqSummary.increased > 0 ? (
+                        <span className="inline-flex items-center gap-1">
+                          <span className="tabular-nums">{fund.qoqSummary.increased}</span>
+                          <ChangeBadge changeType="increased" />
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">0</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {fund.qoqSummary.decreased > 0 ? (
+                        <span className="inline-flex items-center gap-1">
+                          <span className="tabular-nums">{fund.qoqSummary.decreased}</span>
+                          <ChangeBadge changeType="decreased" />
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">0</span>
+                      )}
+                    </TableCell>
+                  </>
+                ) : (
+                  <TableCell colSpan={7} className="text-center text-muted-foreground italic">
+                    No data for this quarter
+                  </TableCell>
+                )}
+              </TableRow>
+            )
+          })}
         </TableBody>
       </Table>
 
