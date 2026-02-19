@@ -25,7 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </Link>
               <NavLinks />
               <div className="ml-auto">
-                <QuarterPicker quarters={quarters} />
+                <QuarterPicker quarters={quarters.slice(0, 2)} />
               </div>
             </div>
           </header>
