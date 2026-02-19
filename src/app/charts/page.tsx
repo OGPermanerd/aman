@@ -1,17 +1,19 @@
-import { getQoQFlowData, getGlobalQuarters } from '@/lib/data'
+import { getQoQFlowData, getGlobalQuarters, getFundsWithBothQuarters } from '@/lib/data'
+import { previousQuarter } from '@/analytics/quarter-utils'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency, formatQuarterLabel, formatPercent, formatNumber } from '@/lib/formatters'
 import { QoQSankey } from './qoq-sankey'
 
 interface ChartsPageProps {
-  searchParams: Promise<{ quarter?: string }>
+  searchParams: Promise<{ quarter?: string; hideEmpty?: string }>
 }
 
 export default async function ChartsPage({ searchParams }: ChartsPageProps) {
-  const { quarter: qParam } = await searchParams
+  const { quarter: qParam, hideEmpty: hideEmptyParam } = await searchParams
   const quarters = getGlobalQuarters()
   const quarter = qParam ?? quarters[0] ?? ''
+  const hideEmpty = hideEmptyParam === 'true'
 
   if (!quarter) {
     return (
@@ -21,7 +23,18 @@ export default async function ChartsPage({ searchParams }: ChartsPageProps) {
     )
   }
 
-  const flow = getQoQFlowData(quarter)
+  // When hideEmpty, only include funds with data in both quarters
+  let matchedCiks: string[] | undefined
+  try {
+    const prevQ = previousQuarter(quarter)
+    if (hideEmpty) {
+      matchedCiks = getFundsWithBothQuarters(quarter, prevQ)
+    }
+  } catch {
+    // No prior quarter
+  }
+
+  const flow = getQoQFlowData(quarter, matchedCiks)
 
   if (!flow) {
     return (

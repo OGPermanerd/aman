@@ -42,17 +42,13 @@ export default async function GroupDetailPage({ params, searchParams }: GroupDet
   }
 
   const detail = getGroupDetail(strategyGroup, quarter)
-  const groupSectorData = getGroupSectorBreakdown(strategyGroup, quarter)
-  const groupFlow = getGroupQoQFlowData(strategyGroup, quarter)
 
   // Get prior quarter data for comparison
   let prevQ: string | null = null
   let priorDetail: typeof detail | null = null
-  let priorSectorData: typeof groupSectorData = []
   try {
     prevQ = previousQuarter(quarter)
     priorDetail = getGroupDetail(strategyGroup, prevQ)
-    priorSectorData = getGroupSectorBreakdown(strategyGroup, prevQ)
   } catch {
     // No prior quarter
   }
@@ -72,6 +68,17 @@ export default async function GroupDetailPage({ params, searchParams }: GroupDet
   const displayFunds = hideEmpty
     ? allFunds.filter((f) => f.hasData && (priorFundMap.get(f.cik)?.hasData ?? false))
     : allFunds
+
+  // CIK filter for charts: same population in both quarters
+  const matchedCiks = hideEmpty
+    ? displayFunds.filter((f) => f.hasData).map((f) => f.cik)
+    : undefined
+
+  const groupSectorData = getGroupSectorBreakdown(strategyGroup, quarter, matchedCiks)
+  const priorSectorData = prevQ
+    ? getGroupSectorBreakdown(strategyGroup, prevQ, matchedCiks)
+    : []
+  const groupFlow = getGroupQoQFlowData(strategyGroup, quarter, matchedCiks)
 
   // Compute aggregates from the displayed (possibly filtered) funds
   const fundsWithData = displayFunds.filter((f) => f.hasData).length
@@ -221,23 +228,13 @@ export default async function GroupDetailPage({ params, searchParams }: GroupDet
       )}
 
       {/* Sector Allocation Comparison */}
-      {priorSectorData.length > 0 ? (
-        <SectorComparisonChart
-          current={groupSectorData}
-          prior={priorSectorData}
-          currentLabel={formatQuarterLabel(quarter)}
-          priorLabel={prevQ ? formatQuarterLabel(prevQ) : 'Prior'}
-          title="Sector Allocation"
-        />
-      ) : (
-        <SectorComparisonChart
-          current={groupSectorData}
-          prior={[]}
-          currentLabel={formatQuarterLabel(quarter)}
-          priorLabel="Prior"
-          title="Sector Allocation"
-        />
-      )}
+      <SectorComparisonChart
+        current={groupSectorData}
+        prior={priorSectorData}
+        currentLabel={formatQuarterLabel(quarter)}
+        priorLabel={prevQ ? formatQuarterLabel(prevQ) : 'Prior'}
+        title="Sector Allocation"
+      />
     </div>
   )
 }

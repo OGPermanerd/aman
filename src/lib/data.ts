@@ -26,6 +26,27 @@ export function getGlobalQuarters(): string[] {
   return rows.map((r) => r.reportQuarter)
 }
 
+/** Returns CIKs of active funds that have holdings in BOTH quarters (equity only). */
+export function getFundsWithBothQuarters(q1: string, q2: string): string[] {
+  const activeFunds = db
+    .select({ cik: funds.cik })
+    .from(funds)
+    .where(eq(funds.active, true))
+    .all()
+
+  return activeFunds
+    .filter((f) => {
+      const has1 = db.select({ c: sql<number>`COUNT(*)` }).from(holdings)
+        .where(and(eq(holdings.fundCik, f.cik), eq(holdings.reportQuarter, q1), eq(holdings.putCall, '')))
+        .get()
+      const has2 = db.select({ c: sql<number>`COUNT(*)` }).from(holdings)
+        .where(and(eq(holdings.fundCik, f.cik), eq(holdings.reportQuarter, q2), eq(holdings.putCall, '')))
+        .get()
+      return (has1?.c ?? 0) > 0 && (has2?.c ?? 0) > 0
+    })
+    .map((f) => f.cik)
+}
+
 // ---------------------------------------------------------------------------
 // getGroupOverview - DASH-01 landing page
 // ---------------------------------------------------------------------------
@@ -525,12 +546,17 @@ export function getSectorBreakdown(fundCik: string, quarter: string): SectorBrea
 /**
  * Sector breakdown aggregated across all funds in a strategy group.
  */
-export function getGroupSectorBreakdown(strategyGroup: string, quarter: string): SectorBreakdownItem[] {
-  const groupFunds = db
+export function getGroupSectorBreakdown(strategyGroup: string, quarter: string, includeCiks?: string[]): SectorBreakdownItem[] {
+  let groupFunds = db
     .select({ cik: funds.cik })
     .from(funds)
     .where(and(eq(funds.strategyGroup, strategyGroup), eq(funds.active, true)))
     .all()
+
+  if (includeCiks) {
+    const allowed = new Set(includeCiks)
+    groupFunds = groupFunds.filter((f) => allowed.has(f.cik))
+  }
 
   if (groupFunds.length === 0) return []
 
@@ -743,14 +769,19 @@ export interface QoQFlowData {
 /**
  * Aggregate QoQ dollar flows across all funds for the Sankey chart.
  */
-export function getQoQFlowData(quarter: string): QoQFlowData | null {
+export function getQoQFlowData(quarter: string, includeCiks?: string[]): QoQFlowData | null {
   const prevQ = previousQuarter(quarter)
 
-  const activeFunds = db
+  let activeFunds = db
     .select({ cik: funds.cik, strategyGroup: funds.strategyGroup })
     .from(funds)
     .where(eq(funds.active, true))
     .all()
+
+  if (includeCiks) {
+    const allowed = new Set(includeCiks)
+    activeFunds = activeFunds.filter((f) => allowed.has(f.cik))
+  }
 
   let totalPrev = 0
   let totalCurr = 0
@@ -874,14 +905,19 @@ export interface GroupQoQFlowData {
   unchangedValue: number
 }
 
-export function getGroupQoQFlowData(strategyGroup: string, quarter: string): GroupQoQFlowData | null {
+export function getGroupQoQFlowData(strategyGroup: string, quarter: string, includeCiks?: string[]): GroupQoQFlowData | null {
   const prevQ = previousQuarter(quarter)
 
-  const groupFunds = db
+  let groupFunds = db
     .select({ cik: funds.cik })
     .from(funds)
     .where(and(eq(funds.strategyGroup, strategyGroup), eq(funds.active, true)))
     .all()
+
+  if (includeCiks) {
+    const allowed = new Set(includeCiks)
+    groupFunds = groupFunds.filter((f) => allowed.has(f.cik))
+  }
 
   let totalPrev = 0, totalCurr = 0
   let newValue = 0, exitedValue = 0
