@@ -21,7 +21,7 @@ export function QuarterPicker({ quarters }: QuarterPickerProps) {
   )
   const [hideEmpty, setHideEmpty] = useQueryState(
     'hideEmpty',
-    parseAsBoolean.withDefault(false).withOptions({ shallow: false }),
+    parseAsBoolean.withDefault(true).withOptions({ shallow: false }),
   )
 
   if (quarters.length === 0) {
