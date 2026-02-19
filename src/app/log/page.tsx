@@ -184,6 +184,12 @@ const ITERATION_LOG = [
     commit: 'fed90f6',
     type: 'feature' as const,
   },
+  {
+    title: 'Mobile Hydration Error',
+    description: 'Quarter picker checkbox switched from uncontrolled to controlled after mount, and Radix Select caused hydration mismatch on mobile Chrome. Fixed with mounted gate and suppressHydrationWarning.',
+    commit: 'e6dc960',
+    type: 'bug' as const,
+  },
 ]
 
 // ---------------------------------------------------------------------------
