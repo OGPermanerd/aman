@@ -34,7 +34,7 @@ export function QuarterPicker({ quarters }: QuarterPickerProps) {
         <input
           type="checkbox"
           checked={hideEmpty}
-          onChange={(e) => setHideEmpty(e.target.checked || null)}
+          onChange={(e) => setHideEmpty(e.target.checked)}
           className="h-3.5 w-3.5 rounded border-input accent-primary cursor-pointer"
         />
         <span className="text-xs text-muted-foreground whitespace-nowrap">Hide empty</span>

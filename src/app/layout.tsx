@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import { NuqsAdapter } from 'nuqs/adapters/next/app'
 import Link from 'next/link'
 import './globals.css'
@@ -23,9 +24,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/" className="text-xl font-bold tracking-tight shrink-0">
                 HedgeLens
               </Link>
-              <NavLinks />
+              <Suspense>
+                <NavLinks />
+              </Suspense>
               <div className="ml-auto">
-                <QuarterPicker quarters={quarters.slice(0, 2)} />
+                <Suspense>
+                  <QuarterPicker quarters={quarters.slice(0, 2)} />
+                </Suspense>
               </div>
             </div>
           </header>

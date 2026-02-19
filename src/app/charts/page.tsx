@@ -13,7 +13,7 @@ export default async function ChartsPage({ searchParams }: ChartsPageProps) {
   const { quarter: qParam, hideEmpty: hideEmptyParam } = await searchParams
   const quarters = getGlobalQuarters()
   const quarter = qParam ?? quarters[0] ?? ''
-  const hideEmpty = hideEmptyParam === 'true'
+  const hideEmpty = hideEmptyParam !== 'false'
 
   if (!quarter) {
     return (

@@ -31,7 +31,7 @@ export default async function GroupDetailPage({ params, searchParams }: GroupDet
 
   const quarters = getGlobalQuarters()
   const quarter = qParam ?? quarters[0] ?? ''
-  const hideEmpty = hideEmptyParam === 'true'
+  const hideEmpty = hideEmptyParam !== 'false'
 
   if (!quarter) {
     return (
