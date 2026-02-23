@@ -8,3 +8,6 @@ dist/
 .next/
 next-env.d.ts
 data/
+tsconfig.tsbuildinfo
+*.crt
+*.key
