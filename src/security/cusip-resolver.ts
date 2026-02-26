@@ -64,6 +64,13 @@ interface OpenFIGIResponseItem {
 
 const OPENFIGI_URL = 'https://api.openfigi.com/v3/mapping';
 
+/**
+ * How many days to wait before retrying a CUSIP that previously couldn't be
+ * resolved via OpenFIGI. After this window the CUSIP is attempted once more
+ * in case OpenFIGI has since added it to their database.
+ */
+const UNMAPPED_RETRY_DAYS = 30;
+
 function getBatchConfig(): { batchSize: number; delayMs: number } {
   const hasKey = !!process.env.OPENFIGI_API_KEY;
   return {
@@ -126,12 +133,22 @@ export async function resolveNewCusips(
   };
 
   // Find CUSIPs that need resolution:
-  // In holdings but not in securities, OR in securities with unmapped=true
+  // - In holdings but not yet successfully resolved (unmapped=0 in securities), AND
+  // - Not already attempted as unmapped within the last UNMAPPED_RETRY_DAYS days.
+  //   (After that window, retry in case OpenFIGI has since added the security.)
   const unresolvedRows = db
     .select({ cusip: holdings.cusip })
     .from(holdings)
     .where(
-      sql`${holdings.cusip} NOT IN (SELECT ${securities.cusip} FROM ${securities} WHERE ${securities.unmapped} = 0)`,
+      sql`${holdings.cusip} NOT IN (
+        SELECT ${securities.cusip} FROM ${securities} WHERE ${securities.unmapped} = 0
+      )
+      AND ${holdings.cusip} NOT IN (
+        SELECT ${securities.cusip} FROM ${securities}
+        WHERE ${securities.unmapped} = 1
+          AND ${securities.lastAttemptedAt} IS NOT NULL
+          AND ${securities.lastAttemptedAt} > datetime('now', ${sql.raw(`'-${UNMAPPED_RETRY_DAYS} days'`)})
+      )`,
     )
     .groupBy(holdings.cusip)
     .all();
@@ -188,16 +205,19 @@ export async function resolveNewCusips(
           result.resolved++;
         } else {
           // Unresolved -- flag as unmapped, do NOT drop
+          const now = new Date().toISOString();
           db.insert(securities)
             .values({
               cusip,
               unmapped: true,
               mappingSource: null,
+              lastAttemptedAt: now,
             })
             .onConflictDoUpdate({
               target: securities.cusip,
               set: {
                 unmapped: true,
+                lastAttemptedAt: now,
               },
             })
             .run();
@@ -212,6 +232,8 @@ export async function resolveNewCusips(
       result.errors.push(message);
 
       // Flag the entire batch as unmapped on API error
+      // Note: we do NOT stamp lastAttemptedAt here — an API error is transient
+      // (network issue, rate limit) so we want these retried next run.
       for (const cusip of batch) {
         db.insert(securities)
           .values({

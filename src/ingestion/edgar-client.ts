@@ -7,9 +7,10 @@
 
 const EDGAR_BASE = 'https://data.sec.gov';
 const ARCHIVES_BASE = 'https://www.sec.gov/Archives/edgar/data';
-const MIN_INTERVAL_MS = 100; // 10 req/s = 100ms between requests
+const MIN_INTERVAL_MS = 200; // 5 req/s — conservative to avoid 429s on large ingests
 const USER_AGENT = 'HedgeLens hedgelens@example.com';
-const RETRY_BACKOFF_MS = 2000;
+const RETRY_BACKOFF_MS = 5000; // initial backoff on 429
+const MAX_RETRIES = 5;
 
 export class EdgarClient {
   private lastRequestTime = 0;
@@ -31,25 +32,26 @@ export class EdgarClient {
       },
     });
 
-    // Retry once on 429 (rate limited)
+    // Retry up to MAX_RETRIES times on 429 with exponential backoff
     if (response.status === 429) {
-      console.warn(`[EDGAR] Rate limited on ${url}, retrying in ${RETRY_BACKOFF_MS}ms...`);
-      await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS));
-      this.lastRequestTime = Date.now();
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        const wait = RETRY_BACKOFF_MS * attempt;
+        console.warn(`[EDGAR] Rate limited on ${url}, retry ${attempt}/${MAX_RETRIES} in ${wait}ms...`);
+        await new Promise((r) => setTimeout(r, wait));
+        this.lastRequestTime = Date.now();
 
-      const retry = await globalThis.fetch(url, {
-        headers: {
-          'User-Agent': USER_AGENT,
-          Accept: 'application/json',
-        },
-      });
+        const retry = await globalThis.fetch(url, {
+          headers: {
+            'User-Agent': USER_AGENT,
+            Accept: 'application/json',
+          },
+        });
 
-      if (!retry.ok) {
-        throw new Error(
-          `[EDGAR] ${retry.status} after retry: ${url}`,
-        );
+        if (retry.status === 429) continue;
+        if (!retry.ok) throw new Error(`[EDGAR] ${retry.status} after retry: ${url}`);
+        return retry;
       }
-      return retry;
+      throw new Error(`[EDGAR] Rate limited after ${MAX_RETRIES} retries: ${url}`);
     }
 
     if (!response.ok) {
