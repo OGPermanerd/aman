@@ -16,14 +16,31 @@ function slugify(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 }
 
+const GROUP_ORDER: string[] = [
+  'GOATs',
+  'Tiger Cubs',
+  'Others',
+  'Value',
+  'Activist',
+  'Real Estate',
+]
+
 /**
- * Returns all distinct strategy groups from funds config.
+ * Returns all distinct strategy groups from funds config, sorted by the
+ * canonical display order defined in GROUP_ORDER. Unknown groups are
+ * appended alphabetically at the end.
  */
 export function getAllGroups(): string[] {
   const funds = readFundsConfig()
   const groups = [...new Set(funds.map((f) => f.strategyGroup))]
-  groups.sort()
-  return groups
+  return groups.sort((a, b) => {
+    const ai = GROUP_ORDER.indexOf(a)
+    const bi = GROUP_ORDER.indexOf(b)
+    if (ai !== -1 && bi !== -1) return ai - bi
+    if (ai !== -1) return -1
+    if (bi !== -1) return 1
+    return a.localeCompare(b)
+  })
 }
 
 /**

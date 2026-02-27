@@ -94,6 +94,7 @@ export const securities = sqliteTable('securities', {
   mappedAt: text('mapped_at'),
   mappingSource: text('mapping_source'), // "openfigi" | "sec_tickers" | "manual"
   unmapped: integer('unmapped', { mode: 'boolean' }).default(true),
+  lastAttemptedAt: text('last_attempted_at'), // ISO datetime of last resolution attempt (for unmapped back-off)
 });
 
 export type Security = typeof securities.$inferSelect;
