@@ -49,6 +49,45 @@ export function detectValueFormat(
 }
 
 /**
+ * Verify the date-detected value format against the actual raw holdings data.
+ *
+ * Some filers (e.g. Baupost) are non-compliant and still report values in
+ * thousands even after the 2023 cutover. We detect this by checking the median
+ * implied price per share across equity holdings: if it's below $1.00, the
+ * values must be in thousands (no real equity position averages less than $1/share).
+ */
+export function verifyValueFormat(
+  rawHoldings: RawHolding[],
+  detected: 'thousands' | 'exact',
+): 'thousands' | 'exact' {
+  if (detected === 'thousands') return 'thousands';
+
+  const equityHoldings = rawHoldings.filter(
+    (h) =>
+      String(h.shrsOrPrnAmt?.sshPrnamtType) === 'SH' &&
+      !h.putCall &&
+      Number(h.shrsOrPrnAmt?.sshPrnamt) > 0,
+  );
+
+  if (equityHoldings.length === 0) return detected;
+
+  const impliedPrices = equityHoldings
+    .map((h) => Number(h.value) / Number(h.shrsOrPrnAmt.sshPrnamt))
+    .sort((a, b) => a - b);
+
+  const median = impliedPrices[Math.floor(impliedPrices.length / 2)];
+
+  if (median < 1.0) {
+    console.warn(
+      `[Normalizer] Detected non-compliant "thousands" format (median implied price $${median.toFixed(4)}/share). Overriding to thousands.`,
+    );
+    return 'thousands';
+  }
+
+  return 'exact';
+}
+
+/**
  * Normalize a raw value to exact dollars based on the format era.
  */
 export function normalizeValue(

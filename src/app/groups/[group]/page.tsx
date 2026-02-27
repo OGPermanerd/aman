@@ -64,14 +64,16 @@ export default async function GroupDetailPage({ params, searchParams }: GroupDet
     return a.name.localeCompare(b.name)
   })
 
-  // When hideEmpty, only show funds with data in BOTH current and prior quarter
+  // When hideEmpty, only show funds with data in current quarter
   const displayFunds = hideEmpty
-    ? allFunds.filter((f) => f.hasData && (priorFundMap.get(f.cik)?.hasData ?? false))
+    ? allFunds.filter((f) => f.hasData)
     : allFunds
 
-  // CIK filter for charts: same population in both quarters
+  // CIK filter for charts: matched set = funds with data in BOTH quarters (for comparable QoQ charts)
   const matchedCiks = hideEmpty
-    ? displayFunds.filter((f) => f.hasData).map((f) => f.cik)
+    ? allFunds
+        .filter((f) => f.hasData && (priorFundMap.get(f.cik)?.hasData ?? false))
+        .map((f) => f.cik)
     : undefined
 
   const groupSectorData = getGroupSectorBreakdown(strategyGroup, quarter, matchedCiks)

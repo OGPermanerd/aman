@@ -19,6 +19,7 @@ import {
 } from './xml-parser';
 import {
   detectValueFormat,
+  verifyValueFormat,
   normalizeHoldings,
   type NormalizedHolding,
 } from './normalizer';
@@ -191,7 +192,10 @@ export async function ingestFund(
         );
 
         // Detect value format and normalize
-        const valueFormat = detectValueFormat(filing.acceptanceDateTime);
+        const valueFormat = verifyValueFormat(
+          rawHoldings,
+          detectValueFormat(filing.acceptanceDateTime),
+        );
         const normalized = normalizeHoldings(rawHoldings, {
           fundCik: rawCik,
           reportQuarter: quarter.reportQuarter,
