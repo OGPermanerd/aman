@@ -1,7 +1,7 @@
 import 'server-only'
 import { db } from '@/db/connection'
 import { funds, holdings, securities } from '@/db/schema'
-import { eq, and, desc, sql, countDistinct, count } from 'drizzle-orm'
+import { eq, and, desc, sql, countDistinct, count, inArray, or } from 'drizzle-orm'
 import { computePortfolioWeights } from '@/analytics/portfolio-weights'
 import { computeQoQDiff } from '@/analytics/qoq-diff'
 import { computeGroupConsensus } from '@/analytics/group-consensus'
@@ -942,5 +942,270 @@ export function getGroupQoQFlowData(strategyGroup: string, quarter: string, incl
     increasedFrom, increasedTo,
     decreasedFrom, decreasedTo,
     unchangedValue,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// getRealEstateData - Real Estate cross-fund view
+// ---------------------------------------------------------------------------
+
+/**
+ * SIC codes covering all real estate companies:
+ * 6500 General Real Estate · 6510 RE Operators · 6512 Nonresidential Operators
+ * 6519 Lessors of Real Property · 6531 RE Agents & Managers
+ * 6552 Land Subdividers & Developers · 6798 REITs
+ */
+export const RE_SIC_CODES = ['6500', '6510', '6512', '6519', '6531', '6552', '6798'] as const
+
+export interface REHolder {
+  fundCik: string
+  fundName: string
+  strategyGroup: string
+  value: number
+  shares: number
+  changeType: PositionChangeType | null
+  valueDelta: number
+  sharesDelta: number
+}
+
+export interface RESecurity {
+  cusip: string
+  ticker: string | null
+  nameOfIssuer: string
+  sic: string | null
+  sicDescription: string | null
+  totalValue: number      // sum across all holders this quarter
+  prevTotalValue: number  // sum across all holders prior quarter
+  totalValueDelta: number // totalValue - prevTotalValue
+  fundCount: number       // distinct funds holding this quarter
+}
+
+export interface REActivityItem {
+  fundCik: string
+  fundName: string
+  strategyGroup: string
+  cusip: string
+  ticker: string | null
+  nameOfIssuer: string
+  value: number       // current value (0 for exits)
+  valueDelta: number  // current - prior
+  changeType: PositionChangeType
+}
+
+export interface RealEstateData {
+  quarter: string
+  prevQuarter: string | null
+  securities: RESecurity[]      // sorted by totalValue desc
+  activityItems: REActivityItem[] // new/exited/increased/decreased, sorted by |valueDelta| desc
+  totalValue: number            // sum of all RE positions across all funds (current quarter)
+  prevTotalValue: number        // same for prior quarter
+  fundsWithExposure: number     // distinct funds with ≥1 RE holding
+  activityCounts: { new: number; exited: number; increased: number; decreased: number }
+}
+
+/**
+ * Cross-fund real estate holdings view.
+ * Scans every curated fund's portfolio, pulls out holdings whose security has
+ * a real-estate SIC code (6500–6552, 6798), and computes QoQ changes.
+ */
+export function getRealEstateData(quarter: string): RealEstateData {
+  const empty: RealEstateData = {
+    quarter,
+    prevQuarter: null,
+    securities: [],
+    activityItems: [],
+    totalValue: 0,
+    prevTotalValue: 0,
+    fundsWithExposure: 0,
+    activityCounts: { new: 0, exited: 0, increased: 0, decreased: 0 },
+  }
+
+  let prevQ: string | null = null
+  try { prevQ = previousQuarter(quarter) } catch { /* first quarter */ }
+
+  // All active curated funds
+  const activeFunds = db
+    .select({ cik: funds.cik, name: funds.name, strategyGroup: funds.strategyGroup })
+    .from(funds)
+    .where(eq(funds.active, true))
+    .all()
+
+  if (activeFunds.length === 0) return { ...empty, prevQuarter: prevQ }
+
+  const fundMap = new Map(activeFunds.map((f) => [f.cik, f]))
+  const fundCiks = activeFunds.map((f) => f.cik)
+
+  const sicFilter = or(
+    ...RE_SIC_CODES.map((code) => eq(securities.sic, code)),
+  )!
+
+  // Current quarter: all RE holdings across active funds
+  const currRows = db
+    .select({
+      fundCik: holdings.fundCik,
+      cusip: holdings.cusip,
+      value: holdings.value,
+      shares: holdings.shares,
+      nameOfIssuer: holdings.nameOfIssuer,
+      ticker: securities.ticker,
+      secName: securities.name,
+      sic: securities.sic,
+      sicDescription: securities.sicDescription,
+    })
+    .from(holdings)
+    .innerJoin(securities, eq(holdings.cusip, securities.cusip))
+    .where(
+      and(
+        eq(holdings.reportQuarter, quarter),
+        eq(holdings.putCall, ''),
+        inArray(holdings.fundCik, fundCiks),
+        sicFilter,
+      ),
+    )
+    .all()
+
+  // Prior quarter: same filter
+  const prevRows = prevQ
+    ? db
+        .select({
+          fundCik: holdings.fundCik,
+          cusip: holdings.cusip,
+          value: holdings.value,
+          shares: holdings.shares,
+          nameOfIssuer: holdings.nameOfIssuer,
+        })
+        .from(holdings)
+        .innerJoin(securities, eq(holdings.cusip, securities.cusip))
+        .where(
+          and(
+            eq(holdings.reportQuarter, prevQ),
+            eq(holdings.putCall, ''),
+            inArray(holdings.fundCik, fundCiks),
+            sicFilter,
+          ),
+        )
+        .all()
+    : []
+
+  type HoldingKey = string // `${fundCik}:${cusip}`
+
+  const currMap = new Map<HoldingKey, (typeof currRows)[0]>()
+  const prevMap = new Map<HoldingKey, (typeof prevRows)[0]>()
+
+  for (const h of currRows) currMap.set(`${h.fundCik}:${h.cusip}`, h)
+  for (const h of prevRows) prevMap.set(`${h.fundCik}:${h.cusip}`, h)
+
+  const allKeys = new Set<HoldingKey>([...currMap.keys(), ...prevMap.keys()])
+
+  // Per-security aggregation
+  interface SecAgg {
+    ticker: string | null
+    nameOfIssuer: string
+    sic: string | null
+    sicDescription: string | null
+    totalValue: number
+    prevTotalValue: number
+    totalValueDelta: number
+    fundCount: number
+  }
+  const secMap = new Map<string, SecAgg>()
+
+  const activityItems: REActivityItem[] = []
+  let totalValue = 0
+  let prevTotalValue = 0
+  const fundsWithExposure = new Set<string>()
+  const activityCounts = { new: 0, exited: 0, increased: 0, decreased: 0 }
+
+  for (const key of allKeys) {
+    const colonIdx = key.indexOf(':')
+    const fundCik = key.slice(0, colonIdx)
+    const cusip = key.slice(colonIdx + 1)
+
+    const curr = currMap.get(key)
+    const prev = prevMap.get(key)
+
+    const fundInfo = fundMap.get(fundCik)
+    if (!fundInfo) continue
+
+    // Classify change (based on shares, same convention as computeQoQDiff)
+    let changeType: PositionChangeType
+    if (!prev) {
+      changeType = 'new'
+    } else if (!curr) {
+      changeType = 'exited'
+    } else if (curr.shares > prev.shares) {
+      changeType = 'increased'
+    } else if (curr.shares < prev.shares) {
+      changeType = 'decreased'
+    } else {
+      changeType = 'unchanged'
+    }
+
+    const value = curr?.value ?? 0
+    const prevValue = prev?.value ?? 0
+    const valueDelta = value - prevValue
+    const sharesDelta = (curr?.shares ?? 0) - (prev?.shares ?? 0)
+
+    if (curr) {
+      fundsWithExposure.add(fundCik)
+      totalValue += value
+    }
+    if (prev) {
+      prevTotalValue += prevValue
+    }
+
+    // Aggregate into per-security entry
+    if (!secMap.has(cusip)) {
+      secMap.set(cusip, {
+        ticker: curr?.ticker ?? null,
+        nameOfIssuer: curr?.nameOfIssuer ?? prev!.nameOfIssuer,
+        sic: curr?.sic ?? null,
+        sicDescription: curr?.sicDescription ?? null,
+        totalValue: 0,
+        prevTotalValue: 0,
+        totalValueDelta: 0,
+        fundCount: 0,
+      })
+    }
+    const sec = secMap.get(cusip)!
+    sec.totalValue += value
+    sec.prevTotalValue += prevValue
+    sec.totalValueDelta += valueDelta
+    if (curr) sec.fundCount++
+
+    // Activity feed (skip unchanged)
+    if (changeType !== 'unchanged') {
+      activityCounts[changeType]++
+      activityItems.push({
+        fundCik,
+        fundName: fundInfo.name,
+        strategyGroup: fundInfo.strategyGroup,
+        cusip,
+        ticker: curr?.ticker ?? null,
+        nameOfIssuer: curr?.nameOfIssuer ?? prev!.nameOfIssuer,
+        value,
+        valueDelta,
+        changeType,
+      })
+    }
+  }
+
+  // Build securities array, sort by total value desc
+  const securitiesArr: RESecurity[] = Array.from(secMap.entries())
+    .map(([cusip, agg]) => ({ cusip, ...agg }))
+    .sort((a, b) => b.totalValue - a.totalValue)
+
+  // Sort activity by absolute value delta desc (biggest moves first)
+  activityItems.sort((a, b) => Math.abs(b.valueDelta) - Math.abs(a.valueDelta))
+
+  return {
+    quarter,
+    prevQuarter: prevQ,
+    securities: securitiesArr,
+    activityItems,
+    totalValue,
+    prevTotalValue,
+    fundsWithExposure: fundsWithExposure.size,
+    activityCounts,
   }
 }
