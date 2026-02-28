@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { formatCurrency } from '@/lib/formatters'
+import { formatCurrency, formatShares } from '@/lib/formatters'
 import type { PositionChangeType } from '@/analytics/types'
 
 export interface ActivityItem {
@@ -23,6 +23,7 @@ export interface ActivityItem {
   nameOfIssuer: string
   value: number
   valueDelta: number
+  sharesDelta: number
   changeType: PositionChangeType
 }
 
@@ -95,6 +96,7 @@ export function ActivityTabs({ items, quarter, counts }: ActivityTabsProps) {
               <TableHead>Company</TableHead>
               <TableHead className="text-right">Value</TableHead>
               <TableHead className="text-right">Δ Value</TableHead>
+              <TableHead className="text-right w-[100px]">Δ Shares</TableHead>
               <TableHead className="text-center w-[80px]">Change</TableHead>
             </TableRow>
           </TableHeader>
@@ -138,6 +140,24 @@ export function ActivityTabs({ items, quarter, counts }: ActivityTabsProps) {
                     {item.valueDelta > 0 ? '+' : ''}
                     {formatCurrency(item.valueDelta)}
                   </span>
+                </TableCell>
+                <TableCell className="text-right tabular-nums text-sm">
+                  {item.changeType === 'new' || item.changeType === 'exited' ? (
+                    <span className="text-muted-foreground">—</span>
+                  ) : (
+                    <span
+                      className={
+                        item.sharesDelta > 0
+                          ? 'text-green-600'
+                          : item.sharesDelta < 0
+                            ? 'text-red-600'
+                            : 'text-muted-foreground'
+                      }
+                    >
+                      {item.sharesDelta > 0 ? '+' : ''}
+                      {formatShares(item.sharesDelta)}
+                    </span>
+                  )}
                 </TableCell>
                 <TableCell className="text-center">
                   <ChangeBadge changeType={item.changeType} />

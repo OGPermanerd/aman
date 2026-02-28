@@ -987,8 +987,9 @@ export interface REActivityItem {
   cusip: string
   ticker: string | null
   nameOfIssuer: string
-  value: number       // current value (0 for exits)
-  valueDelta: number  // current - prior
+  value: number        // current value (0 for exits)
+  valueDelta: number   // current - prior (dollars)
+  sharesDelta: number  // current - prior (shares) — positive = add, negative = trim
   changeType: PositionChangeType
 }
 
@@ -1192,6 +1193,7 @@ function getCrossFundData(quarter: string, sicCodes: readonly string[]): RealEst
         nameOfIssuer: curr?.nameOfIssuer ?? prev!.nameOfIssuer,
         value,
         valueDelta,
+        sharesDelta,
         changeType,
       })
     }
