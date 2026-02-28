@@ -1004,11 +1004,18 @@ export interface RealEstateData {
 }
 
 /**
- * Cross-fund real estate holdings view.
- * Scans every curated fund's portfolio, pulls out holdings whose security has
- * a real-estate SIC code (6500–6552, 6798), and computes QoQ changes.
+ * SIC codes covering software and internet companies:
+ * 7370 Computer Programming/Data Processing · 7371 Programming Services
+ * 7372 Prepackaged Software · 7373 Computer Integrated Systems
+ * 7374 Computer Processing & Data Prep · 7377 Computer Rental & Leasing
  */
-export function getRealEstateData(quarter: string): RealEstateData {
+export const SW_SIC_CODES = ['7370', '7371', '7372', '7373', '7374', '7377'] as const
+
+// ---------------------------------------------------------------------------
+// Shared cross-fund holdings builder (used by RE and Software pages)
+// ---------------------------------------------------------------------------
+
+function getCrossFundData(quarter: string, sicCodes: readonly string[]): RealEstateData {
   const empty: RealEstateData = {
     quarter,
     prevQuarter: null,
@@ -1036,7 +1043,7 @@ export function getRealEstateData(quarter: string): RealEstateData {
   const fundCiks = activeFunds.map((f) => f.cik)
 
   const sicFilter = or(
-    ...RE_SIC_CODES.map((code) => eq(securities.sic, code)),
+    ...sicCodes.map((code) => eq(securities.sic, code)),
   )!
 
   // Current quarter: all RE holdings across active funds
@@ -1208,4 +1215,14 @@ export function getRealEstateData(quarter: string): RealEstateData {
     fundsWithExposure: fundsWithExposure.size,
     activityCounts,
   }
+}
+
+/** Cross-fund real estate holdings view (SIC 6500–6552, 6798). */
+export function getRealEstateData(quarter: string): RealEstateData {
+  return getCrossFundData(quarter, RE_SIC_CODES)
+}
+
+/** Cross-fund software holdings view (SIC 7370–7374, 7377). */
+export function getSoftwareData(quarter: string): RealEstateData {
+  return getCrossFundData(quarter, SW_SIC_CODES)
 }
