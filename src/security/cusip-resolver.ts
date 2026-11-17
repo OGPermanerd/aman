@@ -10,11 +10,122 @@
  *              With API key: 100 jobs/req, 25 req/6sec (250ms between).
  */
 
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, sql, inArray } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 import { securities, holdings } from '../db/schema';
 import type * as schema from '../db/schema';
+
+// ---------------------------------------------------------------------------
+// Exchange preference for picking the best OpenFIGI result
+// ---------------------------------------------------------------------------
+
+/** Primary US exchange codes to prefer over OTC/foreign listings */
+const PRIMARY_US_EXCH = new Set(['UN', 'UW', 'UM', 'UO', 'UA', 'US']);
+
+/**
+ * Pick the best match from OpenFIGI data array.
+ * Prefers primary US exchange listings (NYSE/NASDAQ) so we don't end up with
+ * a foreign or OTC ticker when a US-primary listing exists.
+ */
+function pickBestFIGIMatch(data: OpenFIGIDataItem[]): OpenFIGIDataItem {
+  return data.find((d) => PRIMARY_US_EXCH.has(d.exchCode)) ?? data[0];
+}
+
+// ---------------------------------------------------------------------------
+// Name-based fallback for foreign-incorporated CUSIPs
+// ---------------------------------------------------------------------------
+
+/** Legal entity suffixes to strip when normalizing company names for matching */
+const LEGAL_SUFFIX_RE =
+  /\b(INC|CORP|CORPORATION|CO|PLC|LTD|LIMITED|LLC|LP|NV|SA|AG|SE|HLDGS?|HLDNG?|HOLDINGS?|GROUP|GRP|TECHNOLOGIES?|TECH|INTERNATIONAL|INTL|BANCORP|BANCSHARES|FINANCIAL|SOLUTIONS|SYSTEMS?|SERVICES?|ENTERPRISES?|INDUSTRIES|PARTNERS?|ASSOCIATES?|TRUST)\b/g;
+
+function normalizeName(name: string): string {
+  return name
+    .toUpperCase()
+    .replace(/[^A-Z0-9\s]/g, ' ')
+    .replace(LEGAL_SUFFIX_RE, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * For CUSIPs that OpenFIGI couldn't resolve (typically foreign-incorporated
+ * companies with G/L/M/N prefix identifiers), attempt a name-based match
+ * against SEC's company_tickers.json.
+ *
+ * Only writes a result when there is exactly one normalized-name match,
+ * to avoid false positives.
+ */
+async function resolveByNameFallback(
+  db: BetterSQLite3Database<typeof schema>,
+  cusips: string[],
+): Promise<number> {
+  // Fetch nameOfIssuer for each unmapped CUSIP from holdings
+  const nameRows = db
+    .selectDistinct({ cusip: holdings.cusip, name: holdings.nameOfIssuer })
+    .from(holdings)
+    .where(inArray(holdings.cusip, cusips))
+    .all();
+
+  if (nameRows.length === 0) return 0;
+
+  // Fetch SEC company_tickers.json
+  let secData: Record<string, { cik_str: number; ticker: string; title: string }>;
+  try {
+    const resp = await globalThis.fetch('https://www.sec.gov/files/company_tickers.json', {
+      headers: { 'User-Agent': 'HedgeLens hedgelens@example.com', Accept: 'application/json' },
+    });
+    if (!resp.ok) return 0;
+    secData = await resp.json() as typeof secData;
+  } catch {
+    return 0;
+  }
+
+  // Build normalized-name → { ticker, cik } map; skip names with multiple matches
+  const normalizedToEntry = new Map<string, { ticker: string; cik: string } | null>();
+  for (const entry of Object.values(secData)) {
+    const norm = normalizeName(entry.title);
+    if (norm.length < 3) continue;
+    // Mark as ambiguous (null) if more than one company maps to this normalized name
+    if (normalizedToEntry.has(norm)) {
+      normalizedToEntry.set(norm, null);
+    } else {
+      normalizedToEntry.set(norm, { ticker: entry.ticker, cik: String(entry.cik_str) });
+    }
+  }
+
+  let resolved = 0;
+  for (const row of nameRows) {
+    const norm = normalizeName(row.name);
+    const match = normalizedToEntry.get(norm);
+    if (!match) continue; // no match or ambiguous
+
+    db.insert(securities)
+      .values({
+        cusip: row.cusip,
+        ticker: match.ticker,
+        issuerCik: match.cik,
+        mappingSource: 'sec_tickers',
+        unmapped: false,
+        mappedAt: new Date().toISOString(),
+      })
+      .onConflictDoUpdate({
+        target: securities.cusip,
+        set: {
+          ticker: match.ticker,
+          issuerCik: match.cik,
+          mappingSource: 'sec_tickers',
+          unmapped: false,
+          mappedAt: new Date().toISOString(),
+        },
+      })
+      .run();
+    resolved++;
+  }
+
+  return resolved;
+}
 
 // ---------------------------------------------------------------------------
 // Interfaces
@@ -179,7 +290,7 @@ export async function resolveNewCusips(
         const response = responses[j];
 
         if (response?.data && response.data.length > 0) {
-          const match = response.data[0];
+          const match = pickBestFIGIMatch(response.data);
           db.insert(securities)
             .values({
               cusip,
@@ -253,6 +364,23 @@ export async function resolveNewCusips(
     }
   }
 
+  // Name-based fallback for CUSIPs OpenFIGI couldn't resolve
+  // (typically foreign-incorporated companies with G/L/M/N prefix identifiers)
+  const stillUnmapped = db
+    .select({ cusip: securities.cusip })
+    .from(securities)
+    .where(and(eq(securities.unmapped, true), inArray(securities.cusip, cusipsToResolve)))
+    .all()
+    .map((r) => r.cusip);
+
+  if (stillUnmapped.length > 0) {
+    console.log(`[CUSIP Resolver] Trying name-based fallback for ${stillUnmapped.length} unmapped CUSIPs...`);
+    const nameResolved = await resolveByNameFallback(db, stillUnmapped);
+    result.resolved += nameResolved;
+    result.unmapped -= nameResolved;
+    console.log(`[CUSIP Resolver] Name fallback resolved ${nameResolved} additional CUSIPs`);
+  }
+
   console.log(
     `[CUSIP Resolver] Done: ${result.resolved} resolved, ${result.unmapped} unmapped, ${result.errors.length} errors`,
   );
@@ -316,7 +444,7 @@ export async function resolveCusips(
         const response = responses[j];
 
         if (response?.data && response.data.length > 0) {
-          const match = response.data[0];
+          const match = pickBestFIGIMatch(response.data);
           const info: SecurityInfo = {
             cusip,
             ticker: match.ticker || null,

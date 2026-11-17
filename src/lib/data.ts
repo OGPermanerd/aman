@@ -729,6 +729,120 @@ export function getDataCompleteness(): DataCompleteness {
 }
 
 // ---------------------------------------------------------------------------
+// getGroupActivity - Biggest adds and trims/exits for a group, weighted by fund size
+// ---------------------------------------------------------------------------
+
+export interface GroupActivityEntry {
+  cusip: string
+  ticker: string | null
+  nameOfIssuer: string
+  /** Sum of each fund's valueDelta * (fundAUM / groupAUM) — size-weighted dollar move */
+  weightedDelta: number
+  /** Raw dollar aggregate across all funds for display */
+  netValueDelta: number
+  fundCount: number
+  fundDetails: Array<{ name: string; valueDelta: number; changeType: PositionChangeType }>
+}
+
+export interface GroupActivity {
+  topAdds: GroupActivityEntry[]
+  topTrims: GroupActivityEntry[]
+}
+
+/**
+ * Returns the biggest adds and trims/exits for a strategy group in a quarter.
+ * Each security's delta is weighted by fund AUM so larger funds don't crowd
+ * out high-conviction moves from smaller funds.
+ */
+export function getGroupActivity(
+  strategyGroup: string,
+  quarter: string,
+  limit = 10,
+): GroupActivity {
+  const groupFunds = getFundsInGroup(strategyGroup)
+
+  let prevQ: string
+  try {
+    prevQ = previousQuarter(quarter)
+  } catch {
+    return { topAdds: [], topTrims: [] }
+  }
+
+  // Portfolio value per fund (current quarter equity only)
+  const fundAUM = new Map<string, number>()
+  for (const fund of groupFunds) {
+    const row = db
+      .select({ total: sql<number>`SUM(${holdings.value})` })
+      .from(holdings)
+      .where(and(eq(holdings.fundCik, fund.cik), eq(holdings.reportQuarter, quarter), eq(holdings.putCall, '')))
+      .get()
+    const total = row?.total ?? 0
+    if (total > 0) fundAUM.set(fund.cik, total)
+  }
+
+  const groupAUM = Array.from(fundAUM.values()).reduce((a, b) => a + b, 0)
+  if (groupAUM === 0) return { topAdds: [], topTrims: [] }
+
+  // Aggregate diffs across funds, weighting each fund's delta by its AUM share
+  const cusipMap = new Map<string, {
+    ticker: string | null
+    nameOfIssuer: string
+    weightedDelta: number
+    netValueDelta: number
+    fundDetails: Array<{ name: string; valueDelta: number; changeType: PositionChangeType }>
+  }>()
+
+  for (const fund of groupFunds) {
+    const aum = fundAUM.get(fund.cik)
+    if (!aum) continue // no data this quarter
+
+    const weight = aum / groupAUM
+    const diff = computeQoQDiff(db, fund.cik, quarter, prevQ)
+
+    for (const d of diff.diffs) {
+      if (d.changeType === 'unchanged') continue
+
+      if (!cusipMap.has(d.cusip)) {
+        cusipMap.set(d.cusip, {
+          ticker: d.ticker,
+          nameOfIssuer: d.nameOfIssuer,
+          weightedDelta: 0,
+          netValueDelta: 0,
+          fundDetails: [],
+        })
+      }
+
+      const entry = cusipMap.get(d.cusip)!
+      entry.weightedDelta += d.valueDelta * weight
+      entry.netValueDelta += d.valueDelta
+      entry.fundDetails.push({ name: fund.name, valueDelta: d.valueDelta, changeType: d.changeType })
+    }
+  }
+
+  const entries: GroupActivityEntry[] = Array.from(cusipMap.entries()).map(([cusip, data]) => ({
+    cusip,
+    ticker: data.ticker,
+    nameOfIssuer: data.nameOfIssuer,
+    weightedDelta: data.weightedDelta,
+    netValueDelta: data.netValueDelta,
+    fundCount: data.fundDetails.length,
+    fundDetails: data.fundDetails,
+  }))
+
+  const topAdds = entries
+    .filter((e) => e.weightedDelta > 0)
+    .sort((a, b) => b.weightedDelta - a.weightedDelta)
+    .slice(0, limit)
+
+  const topTrims = entries
+    .filter((e) => e.weightedDelta < 0)
+    .sort((a, b) => a.weightedDelta - b.weightedDelta)
+    .slice(0, limit)
+
+  return { topAdds, topTrims }
+}
+
+// ---------------------------------------------------------------------------
 // getQoQFlowData - Aggregated QoQ dollar flow for Sankey chart
 // ---------------------------------------------------------------------------
 

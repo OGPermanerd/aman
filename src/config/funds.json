@@ -171,7 +171,7 @@
       "strategyGroup": "GOATs"
     },
     {
-      "cik": "1581811",
+      "cik": "1647251",
       "name": "TCI Fund Management",
       "strategyGroup": "GOATs"
     },
@@ -181,7 +181,7 @@
       "strategyGroup": "GOATs"
     },
     {
-      "cik": "1647251",
+      "cik": "1581811",
       "name": "Egerton Capital",
       "strategyGroup": "GOATs"
     },
@@ -199,6 +199,11 @@
       "cik": "1656456",
       "name": "Appaloosa Management",
       "strategyGroup": "GOATs"
+    },
+    {
+      "cik": "1590531",
+      "name": "Foxhaven",
+      "strategyGroup": "Tiger Cubs"
     }
   ]
 }

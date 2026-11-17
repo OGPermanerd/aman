@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getGroupDetail, getGroupSectorBreakdown, getGlobalQuarters, getGroupQoQFlowData } from '@/lib/data'
+import { getGroupDetail, getGroupSectorBreakdown, getGlobalQuarters, getGroupQoQFlowData, getGroupActivity } from '@/lib/data'
 import { slugToGroup } from '@/lib/slugs'
 import { previousQuarter } from '@/analytics/quarter-utils'
 import { QuarterDisplay } from '@/app/_components/quarter-display'
@@ -64,10 +64,8 @@ export default async function GroupDetailPage({ params, searchParams }: GroupDet
     return a.name.localeCompare(b.name)
   })
 
-  // When hideEmpty, only show funds with data in current quarter
-  const displayFunds = hideEmpty
-    ? allFunds.filter((f) => f.hasData)
-    : allFunds
+  // Always show all funds in the table so late/non-filers are visible
+  const displayFunds = allFunds
 
   // CIK filter for charts: matched set = funds with data in BOTH quarters (for comparable QoQ charts)
   const matchedCiks = hideEmpty
@@ -76,6 +74,7 @@ export default async function GroupDetailPage({ params, searchParams }: GroupDet
         .map((f) => f.cik)
     : undefined
 
+  const groupActivity = getGroupActivity(strategyGroup, quarter)
   const groupSectorData = getGroupSectorBreakdown(strategyGroup, quarter, matchedCiks)
   const priorSectorData = prevQ
     ? getGroupSectorBreakdown(strategyGroup, prevQ, matchedCiks)
@@ -206,6 +205,87 @@ export default async function GroupDetailPage({ params, searchParams }: GroupDet
           })}
         </TableBody>
       </Table>
+
+      {/* Biggest Adds & Trims */}
+      {(groupActivity.topAdds.length > 0 || groupActivity.topTrims.length > 0) && (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Biggest Adds</CardTitle>
+              <p className="text-sm text-muted-foreground">Weighted by fund size</p>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Security</TableHead>
+                    <TableHead className="text-right">Net Added</TableHead>
+                    <TableHead className="text-right">Funds</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {groupActivity.topAdds.map((entry) => (
+                    <TableRow key={entry.cusip}>
+                      <TableCell>
+                        <Link href={`/positions/${entry.cusip}?quarter=${quarter}`} className="hover:underline font-medium">
+                          {entry.ticker ?? entry.nameOfIssuer}
+                        </Link>
+                        {entry.ticker && (
+                          <p className="text-xs text-muted-foreground">{entry.nameOfIssuer}</p>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-green-600 font-medium">
+                        +{formatCurrency(entry.netValueDelta)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">
+                        {entry.fundCount}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Biggest Trims & Exits</CardTitle>
+              <p className="text-sm text-muted-foreground">Weighted by fund size</p>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Security</TableHead>
+                    <TableHead className="text-right">Net Reduced</TableHead>
+                    <TableHead className="text-right">Funds</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {groupActivity.topTrims.map((entry) => (
+                    <TableRow key={entry.cusip}>
+                      <TableCell>
+                        <Link href={`/positions/${entry.cusip}?quarter=${quarter}`} className="hover:underline font-medium">
+                          {entry.ticker ?? entry.nameOfIssuer}
+                        </Link>
+                        {entry.ticker && (
+                          <p className="text-xs text-muted-foreground">{entry.nameOfIssuer}</p>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-red-600 font-medium">
+                        {formatCurrency(entry.netValueDelta)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">
+                        {entry.fundCount}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Group Capital Flow Sankey */}
       {groupFlow && (
