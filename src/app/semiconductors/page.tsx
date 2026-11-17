@@ -30,6 +30,7 @@ function sicLabel(sic: string | null): string {
     '3823': 'Equipment',
     '3679': 'Equipment',
     '3663': 'RF / Wireless',
+    '3572': 'Memory',
   }
   return labels[sic] ?? sic
 }

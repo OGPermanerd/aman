@@ -1132,8 +1132,8 @@ export const SW_SIC_CODES = ['7370', '7371', '7372', '7373', '7374', '7377'] as 
  */
 export const SEMI_SIC_CODES = ['3674', '3559'] as const
 
-/** Semis and semicap names the SEC files under other SIC codes (metrology, test, process subsystems, RF). */
-export const SEMI_EXTRA_TICKERS = ['KLAC', 'CAMT', 'NVMI', 'ONTO', 'TER', 'AEHR', 'MKSI', 'AEIS', 'QCOM'] as const
+/** Semis and semicap names the SEC files under other SIC codes (metrology, test, process subsystems, RF, NAND). */
+export const SEMI_EXTRA_TICKERS = ['KLAC', 'CAMT', 'NVMI', 'ONTO', 'TER', 'AEHR', 'MKSI', 'AEIS', 'QCOM', 'SNDK'] as const
 
 /**
  * Non-semi names filed under the semi SIC codes: solar (CSIQ, ENPH, SEDG, TE, NXT),
