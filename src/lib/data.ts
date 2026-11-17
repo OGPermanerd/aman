@@ -1,7 +1,7 @@
 import 'server-only'
 import { db } from '@/db/connection'
 import { funds, holdings, securities } from '@/db/schema'
-import { eq, and, desc, sql, countDistinct, count, inArray, or } from 'drizzle-orm'
+import { eq, and, desc, sql, countDistinct, count, inArray, notInArray, isNull, or } from 'drizzle-orm'
 import { computePortfolioWeights } from '@/analytics/portfolio-weights'
 import { computeQoQDiff } from '@/analytics/qoq-diff'
 import { computeGroupConsensus } from '@/analytics/group-consensus'
@@ -1127,13 +1127,20 @@ export interface RealEstateData {
 export const SW_SIC_CODES = ['7370', '7371', '7372', '7373', '7374', '7377'] as const
 
 /**
- * SIC codes covering semiconductor companies:
- * 3674 Semiconductors & Related Devices · 3559 Special Industry Machinery (semi equipment)
+ * Semiconductors and semicap (semiconductor capital equipment).
+ * SIC 3674 Semiconductors & Related Devices · 3559 Special Industry Machinery (semi equipment)
  */
 export const SEMI_SIC_CODES = ['3674', '3559'] as const
 
-/** Semi names the SEC files under other SIC codes (metrology, test, RF). */
-export const SEMI_EXTRA_TICKERS = ['KLAC', 'CAMT', 'NVMI', 'ONTO', 'TER', 'AEHR', 'QCOM'] as const
+/** Semis and semicap names the SEC files under other SIC codes (metrology, test, process subsystems, RF). */
+export const SEMI_EXTRA_TICKERS = ['KLAC', 'CAMT', 'NVMI', 'ONTO', 'TER', 'AEHR', 'MKSI', 'AEIS', 'QCOM'] as const
+
+/**
+ * Non-semi names filed under the semi SIC codes: solar (CSIQ, ENPH, SEDG, TE, NXT),
+ * optical/laser (AAOI, LASR) and network test (VIAV). Semi-exposed industrials (GEV, VRT, etc.)
+ * are deliberately out of scope.
+ */
+export const SEMI_EXCLUDE_TICKERS = ['CSIQ', 'ENPH', 'SEDG', 'TE', 'NXT', 'AAOI', 'LASR', 'VIAV'] as const
 
 // ---------------------------------------------------------------------------
 // Shared cross-fund holdings builder (used by RE, Software and Semiconductor pages)
@@ -1143,6 +1150,7 @@ function getCrossFundData(
   quarter: string,
   sicCodes: readonly string[],
   extraTickers: readonly string[] = [],
+  excludeTickers: readonly string[] = [],
 ): RealEstateData {
   const empty: RealEstateData = {
     quarter,
@@ -1170,10 +1178,15 @@ function getCrossFundData(
   const fundMap = new Map(activeFunds.map((f) => [f.cik, f]))
   const fundCiks = activeFunds.map((f) => f.cik)
 
-  const sicFilter = or(
+  const includeFilter = or(
     ...sicCodes.map((code) => eq(securities.sic, code)),
     ...(extraTickers.length > 0 ? [inArray(securities.ticker, [...extraTickers])] : []),
   )!
+  // Keep rows with no ticker: NOT IN on NULL would silently drop them
+  const sicFilter =
+    excludeTickers.length > 0
+      ? and(includeFilter, or(isNull(securities.ticker), notInArray(securities.ticker, [...excludeTickers])))!
+      : includeFilter
 
   // Current quarter: all RE holdings across active funds
   const currRows = db
@@ -1357,7 +1370,7 @@ export function getSoftwareData(quarter: string): RealEstateData {
   return getCrossFundData(quarter, SW_SIC_CODES)
 }
 
-/** Cross-fund semiconductor holdings view (SIC 3674, 3559, plus listed semi tickers). */
+/** Cross-fund semis + semicap holdings view (SIC 3674, 3559, plus/minus listed tickers). */
 export function getSemiconductorData(quarter: string): RealEstateData {
-  return getCrossFundData(quarter, SEMI_SIC_CODES, SEMI_EXTRA_TICKERS)
+  return getCrossFundData(quarter, SEMI_SIC_CODES, SEMI_EXTRA_TICKERS, SEMI_EXCLUDE_TICKERS)
 }

@@ -27,6 +27,8 @@ function sicLabel(sic: string | null): string {
     '3827': 'Metrology',
     '3829': 'Metrology',
     '3825': 'Test',
+    '3823': 'Equipment',
+    '3679': 'Equipment',
     '3663': 'RF / Wireless',
   }
   return labels[sic] ?? sic
@@ -58,7 +60,7 @@ export default async function SemiconductorsPage({ searchParams }: Semiconductor
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Semiconductor Holdings</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Cross-fund semiconductor &amp; equipment exposure
+            Cross-fund semiconductor &amp; semicap exposure
             {data.prevQuarter && (
               <> · vs {formatQuarterLabel(data.prevQuarter)}</>
             )}
