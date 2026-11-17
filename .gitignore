@@ -11,3 +11,5 @@ data/
 tsconfig.tsbuildinfo
 *.crt
 *.key
+.env*.local
+_to_delete/

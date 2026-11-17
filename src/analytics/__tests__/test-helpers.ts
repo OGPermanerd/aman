@@ -70,7 +70,8 @@ export function createTestDb(): TestDb {
       issuer_cik TEXT,
       mapped_at TEXT,
       mapping_source TEXT,
-      unmapped INTEGER DEFAULT 1
+      unmapped INTEGER DEFAULT 1,
+      last_attempted_at TEXT
     );
   `);
 
