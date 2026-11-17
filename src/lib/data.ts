@@ -1126,11 +1126,24 @@ export interface RealEstateData {
  */
 export const SW_SIC_CODES = ['7370', '7371', '7372', '7373', '7374', '7377'] as const
 
+/**
+ * SIC codes covering semiconductor companies:
+ * 3674 Semiconductors & Related Devices · 3559 Special Industry Machinery (semi equipment)
+ */
+export const SEMI_SIC_CODES = ['3674', '3559'] as const
+
+/** Semi names the SEC files under other SIC codes (metrology, test, RF). */
+export const SEMI_EXTRA_TICKERS = ['KLAC', 'CAMT', 'NVMI', 'ONTO', 'TER', 'AEHR', 'QCOM'] as const
+
 // ---------------------------------------------------------------------------
-// Shared cross-fund holdings builder (used by RE and Software pages)
+// Shared cross-fund holdings builder (used by RE, Software and Semiconductor pages)
 // ---------------------------------------------------------------------------
 
-function getCrossFundData(quarter: string, sicCodes: readonly string[]): RealEstateData {
+function getCrossFundData(
+  quarter: string,
+  sicCodes: readonly string[],
+  extraTickers: readonly string[] = [],
+): RealEstateData {
   const empty: RealEstateData = {
     quarter,
     prevQuarter: null,
@@ -1159,6 +1172,7 @@ function getCrossFundData(quarter: string, sicCodes: readonly string[]): RealEst
 
   const sicFilter = or(
     ...sicCodes.map((code) => eq(securities.sic, code)),
+    ...(extraTickers.length > 0 ? [inArray(securities.ticker, [...extraTickers])] : []),
   )!
 
   // Current quarter: all RE holdings across active funds
@@ -1341,4 +1355,9 @@ export function getRealEstateData(quarter: string): RealEstateData {
 /** Cross-fund software holdings view (SIC 7370–7374, 7377). */
 export function getSoftwareData(quarter: string): RealEstateData {
   return getCrossFundData(quarter, SW_SIC_CODES)
+}
+
+/** Cross-fund semiconductor holdings view (SIC 3674, 3559, plus listed semi tickers). */
+export function getSemiconductorData(quarter: string): RealEstateData {
+  return getCrossFundData(quarter, SEMI_SIC_CODES, SEMI_EXTRA_TICKERS)
 }

@@ -8,6 +8,7 @@ const links = [
   { href: '/groups', label: 'Groups' },
   { href: '/real-estate', label: 'Real Estate' },
   { href: '/software', label: 'Software' },
+  { href: '/semiconductors', label: 'Semis' },
   { href: '/charts', label: 'Charts' },
   { href: '/status', label: 'Status' },
   { href: '/manage', label: 'Manage' },
